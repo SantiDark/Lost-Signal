@@ -53,14 +53,6 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
 #scene-trust-fill-wrap{width:44px;height:2px;background:rgba(122,159,200,0.12);border-radius:1px;}
 #scene-trust-fill{height:100%;width:50%;background:rgba(122,159,200,0.55);border-radius:1px;transition:width 1.2s ease,background 1.2s ease;}
 
-/* VOICE INDICATOR — pulse dot while speaking */
-.msg-speaking .msg-speaker::after{
-  content:'';display:inline-block;width:4px;height:4px;border-radius:50%;
-  background:currentColor;margin-left:6px;vertical-align:middle;opacity:0.7;
-  animation:speakPulse 0.35s ease infinite alternate;
-}
-@keyframes speakPulse{from{opacity:0.2;transform:scale(0.7)}to{opacity:0.9;transform:scale(1.3)}}
-
 /* DIALOGUE */
 #dialogue{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;scroll-behavior:smooth;}
 #dialogue::-webkit-scrollbar{width:2px}
@@ -533,7 +525,6 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
       </div>
     </div>
     <button id="audio-btn" onclick="toggleAudio()">♪ ON</button>
-    <button id="voice-btn" onclick="toggleVoice()" style="background:none;border:1px solid var(--line);color:var(--text-muted);font-family:var(--mono);font-size:9px;letter-spacing:0.1em;padding:3px 7px;cursor:pointer;transition:all 0.2s ease;">🎙 ON</button>
   </div>
   <div id="scene">
     <!-- LEFT: main narrative column -->
@@ -966,21 +957,52 @@ function drawBuildings(W,H,far){
 }
 
 function drawLedge(W,H){
-  const lY=H*0.71;
-  px(0,lY,W,6,PAL.ledge);
-  px(0,lY,W,1,'rgba(40,40,60,0.9)');
-  px(0,lY+5,W,2,'rgba(6,6,10,0.8)');
-  for(let x=0;x<W;x+=48) px(x,lY+1,1,4,'rgba(20,20,32,0.6)');
-  px(0,lY-8,W,8,PAL.bldMid);
-  px(0,lY-8,W,1,'rgba(36,36,52,0.8)');
-  for(let x=20;x<W;x+=60){
-    px(x,lY-14,20,6,'rgba(20,20,32,0.9)');
-    px(x,lY-14,20,1,'rgba(40,40,58,0.9)');
+  const lY=Math.round(H*0.72);
+
+  // Ledge top surface — slight perspective gradient
+  const lg=ctx.createLinearGradient(0,lY-2,0,lY+10);
+  lg.addColorStop(0,'#222230');
+  lg.addColorStop(0.3,'#1a1a26');
+  lg.addColorStop(1,'#0e0e16');
+  ctx.fillStyle=lg;
+  ctx.fillRect(0,lY-2,W,12);
+
+  // Top edge highlight — thin bright line
+  ctx.fillStyle='rgba(50,52,74,0.8)';
+  ctx.fillRect(0,lY-2,W,1);
+
+  // Parapet wall — lower section the figures stand on
+  const pg=ctx.createLinearGradient(0,lY-18,0,lY-2);
+  pg.addColorStop(0,'#181820');
+  pg.addColorStop(1,'#1e1e2c');
+  ctx.fillStyle=pg;
+  ctx.fillRect(0,lY-18,W,16);
+
+  // Parapet top cap — slim lighter band
+  ctx.fillStyle='rgba(38,40,58,0.9)';
+  ctx.fillRect(0,lY-18,W,2);
+
+  // Occasional concrete seams
+  ctx.strokeStyle='rgba(12,12,18,0.6)';
+  ctx.lineWidth=1;
+  for(let x=80;x<W;x+=120){
+    ctx.beginPath();ctx.moveTo(x,lY-18);ctx.lineTo(x,lY+10);ctx.stroke();
   }
-  if(sceneState.rain>0.3){
-    const pa=sceneState.rain*0.18;
-    ctx.fillStyle=`rgba(40,50,80,${pa})`;
-    ctx.fillRect(60,lY+3,80,3);ctx.fillRect(250,lY+3,50,2);ctx.fillRect(420,lY+3,90,3);
+
+  // Rain puddles — use ellipses, not rects
+  if(sceneState.rain>0.25){
+    const pa=sceneState.rain*0.22;
+    ctx.fillStyle=`rgba(30,40,70,${pa})`;
+    ctx.beginPath();ctx.ellipse(110,lY+5,44,2.5,0,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(290,lY+5,30,2,0,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(480,lY+4,52,2.5,0,0,Math.PI*2);ctx.fill();
+    // Reflections in puddles — faint city smear
+    const ref=ctx.createLinearGradient(70,lY+3,150,lY+3);
+    ref.addColorStop(0,'transparent');
+    ref.addColorStop(0.5,`rgba(80,60,30,${pa*0.5})`);
+    ref.addColorStop(1,'transparent');
+    ctx.fillStyle=ref;
+    ctx.beginPath();ctx.ellipse(110,lY+5,44,2.5,0,0,Math.PI*2);ctx.fill();
   }
 }
 
@@ -1010,88 +1032,220 @@ function drawRooftopDetails(W,H){
   }
 }
 
+// ── Human silhouette helper — draws a full standing figure as smooth paths
+// ox,oy = foot position, scale = height multiplier, facing = -1 left / 1 right
+// col = base fill color string, edgeAlpha = rim light intensity
+function drawHumanSilhouette(ox, oy, scale, facing, col, edgeAlpha){
+  const s=scale;
+  ctx.save();
+  ctx.translate(ox, oy);
+
+  // Overall fill
+  ctx.fillStyle=col;
+  ctx.strokeStyle=`rgba(80,90,130,${edgeAlpha})`;
+  ctx.lineWidth=0.8;
+
+  // ── LEGS ──
+  // Left leg
+  ctx.beginPath();
+  ctx.moveTo(-6*s, 0);
+  ctx.bezierCurveTo(-7*s, -10*s, -8*s, -25*s, -6*s, -44*s);
+  ctx.lineTo(-2*s, -44*s);
+  ctx.bezierCurveTo(-3*s, -25*s, -2*s, -10*s, -1*s, 0);
+  ctx.closePath();
+  ctx.fill();ctx.stroke();
+
+  // Right leg
+  ctx.beginPath();
+  ctx.moveTo(6*s, 0);
+  ctx.bezierCurveTo(7*s, -10*s, 8*s, -25*s, 6*s, -44*s);
+  ctx.lineTo(2*s, -44*s);
+  ctx.bezierCurveTo(3*s, -25*s, 2*s, -10*s, 1*s, 0);
+  ctx.closePath();
+  ctx.fill();ctx.stroke();
+
+  // Shoes
+  ctx.fillStyle=`rgba(50,55,75,0.9)`;
+  ctx.beginPath();ctx.ellipse(-4*s, 1*s, 4*s, 1.5*s, 0, 0, Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(4*s, 1*s, 4*s, 1.5*s, 0, 0, Math.PI*2);ctx.fill();
+  ctx.fillStyle=col;
+
+  // ── COAT / TORSO ──
+  ctx.beginPath();
+  ctx.moveTo(-10*s, -44*s);
+  ctx.bezierCurveTo(-11*s, -55*s, -10*s, -68*s, -9*s, -78*s);
+  ctx.bezierCurveTo(-7*s, -80*s, 7*s, -80*s, 9*s, -78*s);
+  ctx.bezierCurveTo(10*s, -68*s, 11*s, -55*s, 10*s, -44*s);
+  ctx.closePath();
+  ctx.fill();ctx.stroke();
+
+  // Coat lapel fold
+  ctx.fillStyle=`rgba(18,18,28,0.8)`;
+  ctx.beginPath();
+  ctx.moveTo(0, -78*s);
+  ctx.lineTo(facing*3*s, -70*s);
+  ctx.lineTo(0, -62*s);
+  ctx.lineTo(facing*-3*s, -70*s);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle=col;
+
+  // ── ARMS ──
+  // The arm on the far side hangs; near side is slightly bent
+  const armSwing=Math.sin(sceneState.t*0.4)*1.5*s;
+  // Far arm
+  ctx.beginPath();
+  ctx.moveTo(facing*-9*s, -75*s);
+  ctx.bezierCurveTo(facing*-13*s, -65*s, facing*-14*s, -52*s, facing*-12*s+armSwing, -42*s);
+  ctx.lineTo(facing*-9*s+armSwing, -42*s);
+  ctx.bezierCurveTo(facing*-10*s, -52*s, facing*-10*s, -65*s, facing*-6*s, -74*s);
+  ctx.closePath();
+  ctx.fill();ctx.stroke();
+
+  // Near arm
+  ctx.beginPath();
+  ctx.moveTo(facing*9*s, -75*s);
+  ctx.bezierCurveTo(facing*13*s, -65*s, facing*14*s, -52*s, facing*12*s-armSwing*0.5, -42*s);
+  ctx.lineTo(facing*9*s-armSwing*0.5, -42*s);
+  ctx.bezierCurveTo(facing*10*s, -52*s, facing*10*s, -65*s, facing*6*s, -74*s);
+  ctx.closePath();
+  ctx.fill();ctx.stroke();
+
+  // Hands
+  ctx.fillStyle=`rgba(60,58,72,0.85)`;
+  ctx.beginPath();ctx.ellipse(facing*-11*s+armSwing,-42*s,2.5*s,3*s,0.2,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(facing*11*s-armSwing*0.5,-42*s,2.5*s,3*s,-0.2,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=col;
+
+  // ── NECK & HEAD ──
+  ctx.beginPath();
+  ctx.moveTo(-2.5*s, -80*s);
+  ctx.lineTo(2.5*s, -80*s);
+  ctx.lineTo(2.5*s, -85*s);
+  ctx.lineTo(-2.5*s, -85*s);
+  ctx.closePath();
+  ctx.fill();
+
+  // Head — oval with slight chin definition
+  ctx.beginPath();
+  ctx.moveTo(0, -98*s);
+  ctx.bezierCurveTo(8*s, -98*s, 10*s, -90*s, 9*s, -86*s);
+  ctx.bezierCurveTo(8*s, -83*s, 5*s, -82*s, 0, -82*s);
+  ctx.bezierCurveTo(-5*s, -82*s, -8*s, -83*s, -9*s, -86*s);
+  ctx.bezierCurveTo(-10*s, -90*s, -8*s, -98*s, 0, -98*s);
+  ctx.fill();ctx.stroke();
+
+  // Hair mass
+  ctx.fillStyle=`rgba(22,20,32,0.95)`;
+  ctx.beginPath();
+  ctx.moveTo(-9*s, -90*s);
+  ctx.bezierCurveTo(-9*s, -100*s, -4*s, -103*s, 0, -103*s);
+  ctx.bezierCurveTo(4*s, -103*s, 9*s, -100*s, 9*s, -90*s);
+  ctx.bezierCurveTo(7*s, -94*s, -7*s, -94*s, -9*s, -90*s);
+  ctx.fill();
+  ctx.fillStyle=col;
+
+  // Subtle rim light on one edge
+  ctx.save();
+  ctx.globalAlpha=edgeAlpha*0.6;
+  ctx.strokeStyle='rgba(140,155,200,1)';
+  ctx.lineWidth=0.6;
+  ctx.beginPath();
+  ctx.moveTo(facing*-9*s, -44*s);
+  ctx.bezierCurveTo(facing*-11*s, -60*s, facing*-10*s, -75*s, facing*-9*s, -80*s);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.restore();
+}
+
 function drawChen(W,H){
   if(!sceneState.chenVisible) return;
-  const lY=H*0.71;
+  const lY=H*0.72;
   const cx=Math.round(W*sceneState.chenPos);
-  const cy=lY-8;
-  // Chen is slightly closer to viewer (smaller = further; she's near the door)
-  const scale=0.82;
-  // Subtle glow — she has a torch/flashlight
+
+  // Flashlight glow from Chen's direction
   if(sceneState.spotActive){
-    const fg=ctx.createRadialGradient(cx,cy-20,0,cx,cy-20,30);
-    fg.addColorStop(0,'rgba(180,160,100,0.08)');fg.addColorStop(1,'transparent');
-    ctx.fillStyle=fg;ctx.fillRect(cx-35,cy-60,70,70);
+    const fg=ctx.createRadialGradient(cx+20,lY-60,0,cx+40,lY-40,120);
+    fg.addColorStop(0,'rgba(200,185,140,0.07)');
+    fg.addColorStop(1,'transparent');
+    ctx.fillStyle=fg;ctx.fillRect(cx-20,lY-140,200,160);
   }
-  ctx.save();ctx.translate(cx,cy);ctx.scale(scale,scale);
-  // shadow
-  px(-8,2,18,3,'rgba(0,0,0,0.4)');
-  // legs
-  px(-5,0,4,16,PAL.figBody);px(2,0,4,16,PAL.figBody);
-  px(-5,13,4,2,'rgba(80,88,120,0.6)');px(2,13,4,2,'rgba(80,88,120,0.6)');
-  // torso — slightly different coat (lighter edge for differentiation)
-  px(-8,-32,16,32,PAL.figBody);
-  px(-8,-32,1,32,'rgba(100,108,150,0.5)'); // lighter edge = Chen
-  px(7,-32,1,32,'rgba(80,88,120,0.4)');
-  // Head
-  px(-5,-46,11,12,PAL.figBody);
-  px(-5,-46,11,1,'rgba(100,108,140,0.6)');
-  // hair (slightly different — short)
-  px(-4,-46,10,4,'rgba(50,48,60,0.9)');
-  // eyes
-  px(-2,-40,2,2,'rgba(200,200,210,0.5)');px(1,-40,2,2,'rgba(200,200,210,0.5)');
-  // arms
-  px(-11,-30,3,20,PAL.figBody);px(8,-30,3,20,PAL.figBody);
-  // Flashlight/radio in right hand
-  px(8,-14,3,5,'rgba(80,100,120,0.7)');
+
+  // Ground shadow
+  ctx.fillStyle='rgba(0,0,0,0.3)';
+  ctx.beginPath();ctx.ellipse(cx,lY+2,12,4,0,0,Math.PI*2);ctx.fill();
+
+  // Chen is 1 unit of scale = 1px, total height ~100 virtual units
+  // At scale 0.92 she's slightly shorter/further than Thomas
+  const scale=0.92;
+  drawHumanSilhouette(cx, lY, scale, 1, 'rgba(14,14,22,0.97)', 0.45);
+
+  // Chen's subtle detail: radio/clipboard in near hand
+  ctx.save();
+  ctx.translate(cx,lY);
+  ctx.fillStyle='rgba(60,80,110,0.7)';
+  ctx.fillRect(Math.round(9*scale), Math.round(-52*scale), Math.round(5*scale), Math.round(9*scale));
   ctx.restore();
 }
 
 function drawThomas(W,H){
-  const lY=H*0.71;
+  const lY=H*0.72;
   const t=sceneState.t;
-  // Thomas position: 0=on ledge edge, 1=stepped back 30px
-  const edgeOffset=sceneState.thomasEdgeDist*30;
-  const sway=Math.sin(t*0.35)*2*(1+sceneState.glitchLevel*2)*(1-sceneState.thomasEdgeDist*0.7);
-  const tx=Math.round(W*0.63+sway+edgeOffset);
-  const ty=lY-8;
 
-  // Glow — stronger when trust is high
+  // Thomas position: moves back from ledge as trust is earned
+  const edgeOffset=sceneState.thomasEdgeDist*34;
+  const sway=Math.sin(t*0.38)*1.8*(1+sceneState.glitchLevel*1.5)*(1-sceneState.thomasEdgeDist*0.6);
+  const tx=Math.round(W*0.62+sway+edgeOffset);
+
+  // Atmospheric glow — colour shifts with reliability
   const trust=G.reliability/100;
-  const glowA=0.04+trust*0.06;
-  const grd=ctx.createRadialGradient(tx,ty-30,0,tx,ty-30,50);
-  grd.addColorStop(0,`rgba(100,120,180,${glowA})`);grd.addColorStop(1,'transparent');
-  ctx.fillStyle=grd;ctx.fillRect(tx-55,ty-85,110,110);
+  const glowR=Math.round(80+trust*40);
+  const glowG=Math.round(90+trust*40);
+  const glowB=Math.round(160+trust*20);
+  const glowA=0.06+trust*0.08;
+  const grd=ctx.createRadialGradient(tx,lY-60,0,tx,lY-50,90);
+  grd.addColorStop(0,`rgba(${glowR},${glowG},${glowB},${glowA})`);
+  grd.addColorStop(1,'transparent');
+  ctx.fillStyle=grd;
+  ctx.fillRect(tx-100,lY-180,200,200);
 
-  px(tx-10,ty,22,3,'rgba(0,0,0,0.45)');
+  // Ground shadow — longer when on ledge
+  const shadowW=16+sceneState.thomasEdgeDist*8;
+  ctx.fillStyle='rgba(0,0,0,0.35)';
+  ctx.beginPath();ctx.ellipse(tx,lY+2,shadowW,4,0,0,Math.PI*2);ctx.fill();
 
-  // Legs
-  px(tx-6,ty-2,5,18,PAL.figBody);px(tx+2,ty-2,5,18,PAL.figBody);
-  px(tx-6,ty+14,5,2,PAL.figEdge);px(tx+2,ty+14,5,2,PAL.figEdge);
+  const scale=1.0;
+  const facing=sceneState.thomasLooking?-1:1;
+  drawHumanSilhouette(tx, lY, scale, facing, 'rgba(12,12,20,0.98)', 0.55);
 
-  // Torso
-  px(tx-9,ty-36,18,34,PAL.figBody);
-  px(tx-9,ty-36,1,34,'rgba(70,78,110,0.5)');px(tx+8,ty-36,1,34,'rgba(50,58,90,0.4)');
-  px(tx-4,ty-36,8,6,'rgba(20,20,34,0.9)');
+  // Scarf detail — wraps around neck
+  ctx.save();
+  ctx.translate(tx, lY);
+  ctx.fillStyle='rgba(35,38,58,0.7)';
+  ctx.beginPath();
+  ctx.ellipse(0, -82*scale, 5*scale, 2.5*scale, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
 
-  // Head — turn indicator: if thomasLooking, draw face toward left (Chen's side)
-  px(tx-6,ty-52,13,14,PAL.figBody);
-  px(tx-6,ty-52,13,1,'rgba(70,78,100,0.6)');
-  px(tx-5,ty-52,11,3,'rgba(30,30,48,0.9)');
-
-  if(sceneState.scene!=='fractured'){
-    const eyeOffX=sceneState.thomasLooking?-2:0;
-    px(tx-3+eyeOffX,ty-46,2,2,'rgba(200,200,220,0.45)');
-    px(tx+2+eyeOffX,ty-46,2,2,'rgba(200,200,220,0.45)');
+  // Glitch fractured state — figure breaks up
+  if(sceneState.glitchLevel>0.4){
+    const lvl=sceneState.glitchLevel;
+    ctx.save();
+    ctx.globalAlpha=lvl*0.4;
+    ctx.drawImage(canvas,tx-30,lY-130,60,130,tx-30+(-4+Math.random()*8)*lvl,lY-130,60,130);
+    ctx.restore();
   }
 
-  px(tx-13,ty-34,4,22,PAL.figBody);px(tx+10,ty-34,4,22,PAL.figBody);
-  px(tx-13,ty-14,4,2,PAL.figEdge);px(tx+10,ty-14,4,2,PAL.figEdge);
-  px(tx-4,ty-38,9,4,'rgba(80,88,120,0.3)');
-
   // Rain drip
-  if(sceneState.rain>0.4&&Math.sin(t*3)>0.8)
-    px(tx+2,ty-52,1,Math.floor(sceneState.rain*20),`rgba(100,130,180,${sceneState.rain*0.4})`);
+  if(sceneState.rain>0.45&&Math.sin(t*3.2)>0.75){
+    ctx.strokeStyle=`rgba(100,130,180,${sceneState.rain*0.35})`;
+    ctx.lineWidth=0.7;
+    ctx.beginPath();
+    ctx.moveTo(tx+2, lY-130);
+    ctx.lineTo(tx+2, lY-130+sceneState.rain*22);
+    ctx.stroke();
+  }
 }
 
 function drawRain(W,H){
@@ -1118,16 +1272,32 @@ function drawRain(W,H){
 
 function drawBloom(W,H){
   const bloomY=H*0.68;
-  const bloom=ctx.createLinearGradient(0,bloomY-20,0,bloomY+30);
+
+  // City ambient glow — warm orange band at horizon
+  const bloom=ctx.createLinearGradient(0,bloomY-30,0,bloomY+40);
   bloom.addColorStop(0,'transparent');
-  bloom.addColorStop(0.5,`rgba(80,60,30,${0.05+sceneState.rain*0.04})`);
+  bloom.addColorStop(0.4,`rgba(90,65,28,${0.07+sceneState.rain*0.03})`);
+  bloom.addColorStop(0.7,`rgba(60,40,18,${0.05})`);
   bloom.addColorStop(1,'transparent');
-  ctx.fillStyle=bloom;ctx.fillRect(0,bloomY-20,W,50);
+  ctx.fillStyle=bloom;
+  ctx.fillRect(0,bloomY-30,W,70);
+
+  // Scattered point glows from windows — a few warm spots
+  const pts=[[0.15,0.62],[0.38,0.58],[0.52,0.65],[0.71,0.60],[0.88,0.64]];
+  for(const [px2,py] of pts){
+    const rg=ctx.createRadialGradient(px2*W,py*H,0,px2*W,py*H,30+Math.sin(sceneState.t+px2*10)*5);
+    rg.addColorStop(0,`rgba(200,150,70,${0.04+Math.sin(sceneState.t*0.3+px2*8)*0.015})`);
+    rg.addColorStop(1,'transparent');
+    ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);
+  }
+
+  // Emergency strobe on a far building when glitch is active
   if(sceneState.glitchLevel>0.2){
-    const fl=Math.sin(sceneState.t*8)>0.7;
+    const fl=Math.sin(sceneState.t*7.5)>0.72;
     if(fl){
-      const rg=ctx.createRadialGradient(W*0.3,H*0.5,0,W*0.3,H*0.5,60);
-      rg.addColorStop(0,`rgba(200,60,60,${sceneState.glitchLevel*0.12})`);rg.addColorStop(1,'transparent');
+      const rg=ctx.createRadialGradient(W*0.28,H*0.5,0,W*0.28,H*0.5,55);
+      rg.addColorStop(0,`rgba(210,50,50,${sceneState.glitchLevel*0.14})`);
+      rg.addColorStop(1,'transparent');
       ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);
     }
   }
@@ -1216,78 +1386,6 @@ function updateTime(){
   document.getElementById('time-display').textContent=h.toString().padStart(2,'0')+':'+m.toString().padStart(2,'0');
 }
 
-// ═══════════════════════════════════════════════════════
-// VOICE SYSTEM — Web Speech API
-// ═══════════════════════════════════════════════════════
-let voiceEnabled=true;
-let synth=window.speechSynthesis;
-let voices=[];
-let voiceMap={thomas:null,chen:null,system:null,radio:null};
-
-function initVoices(){
-  if(!synth) return;
-  const load=()=>{
-    voices=synth.getVoices();
-    // Thomas: slower, deeper, British or male preferred
-    voiceMap.thomas=voices.find(v=>v.lang.startsWith('en')&&v.name.toLowerCase().includes('daniel'))
-      ||voices.find(v=>v.lang.startsWith('en-GB'))
-      ||voices.find(v=>v.lang.startsWith('en')&&!v.name.toLowerCase().includes('samantha'))
-      ||voices[0];
-    // Chen: slightly higher, clear
-    voiceMap.chen=voices.find(v=>v.name.toLowerCase().includes('samantha'))
-      ||voices.find(v=>v.lang==='en-US'&&v.name.toLowerCase().includes('female'))
-      ||voices.find(v=>v.lang.startsWith('en'))
-      ||voices[0];
-    // System: robotic — use any US voice at very low pitch
-    voiceMap.system=voiceMap.chen;
-    voiceMap.radio=voiceMap.thomas;
-  };
-  if(voices.length) load();
-  synth.onvoiceschanged=load;
-}
-
-function speak(text,speaker,cls){
-  if(!voiceEnabled||!synth||!audioEnabled) return;
-  // Don't speak internal/memory lines — they're thoughts
-  if(cls&&(cls.includes('memory')||cls.includes('crack')||cls.includes('doubt'))) return;
-
-  synth.cancel();
-  const utt=new SpeechSynthesisUtterance();
-  utt.text=text.replace(/^\(.*?\)$/,'').trim(); // strip action descriptions in parens
-  if(!utt.text) return;
-
-  switch(speaker){
-    case 'THOMAS':
-      utt.voice=voiceMap.thomas;
-      utt.rate=0.82;utt.pitch=0.85;utt.volume=0.75;
-      break;
-    case 'DR. CHEN':
-      utt.voice=voiceMap.chen;
-      utt.rate=0.92;utt.pitch=1.05;utt.volume=0.7;
-      break;
-    case 'RADIO':
-      utt.voice=voiceMap.radio;
-      utt.rate=1.0;utt.pitch=1.1;utt.volume=0.55;
-      break;
-    case '[SYSTEM]':case '[INTERNAL]':
-      utt.voice=voiceMap.system;
-      utt.rate=0.78;utt.pitch=0.6;utt.volume=0.5;
-      break;
-    default:
-      utt.rate=0.9;utt.pitch=1.0;utt.volume=0.6;
-  }
-  // Clamp text length — long internal monologues get truncated for speech
-  if(utt.text.length>120) utt.text=utt.text.slice(0,120)+'...';
-  synth.speak(utt);
-}
-
-function toggleVoice(){
-  voiceEnabled=!voiceEnabled;
-  if(!voiceEnabled&&synth) synth.cancel();
-  const btn=document.getElementById('voice-btn');
-  if(btn) btn.textContent=voiceEnabled?'🎙 ON':'🎙 OFF';
-}
-
 function addMessage(speaker,text,cls=''){
   return new Promise(resolve=>{
     const dlg=document.getElementById('dialogue');
@@ -1297,20 +1395,12 @@ function addMessage(speaker,text,cls=''){
     const txt=document.createElement('div');txt.className='msg-text';
     msg.appendChild(spk);msg.appendChild(txt);
     dlg.appendChild(msg);dlg.scrollTop=dlg.scrollHeight;
-    // Speak the line
-    speak(text,speaker,cls);
-    // Add speaking indicator while text types
-    msg.classList.add('msg-speaking');
     let i=0;
     const speed=cls.includes('system')||cls.includes('memory')||cls.includes('crack')?22:17;
     const timer=setInterval(()=>{
       txt.textContent=text.slice(0,i);i++;
       dlg.scrollTop=dlg.scrollHeight;
-      if(i>text.length){
-        clearInterval(timer);
-        msg.classList.remove('msg-speaking');
-        setTimeout(resolve,160);
-      }
+      if(i>text.length){clearInterval(timer);setTimeout(resolve,160);}
     },speed);
   });
 }
@@ -2498,7 +2588,6 @@ function showEndScreen(){
 
 function startGame(){
   initAudio();
-  initVoices();
   const title=document.getElementById('title-screen');
   title.style.transition='opacity 1s ease';title.style.opacity='0';
   setTimeout(()=>{
