@@ -55,7 +55,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
 #dialogue::-webkit-scrollbar-thumb{background:var(--line)}
 .msg{display:flex;flex-direction:column;gap:3px;margin-bottom:13px;opacity:0;animation:fadeIn 0.5s ease forwards;}
 .msg-speaker{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-dim);}
-.msg-text{font-size:15px;line-height:1.7;color:var(--text);font-family:var(--sans);font-weight:300;}
+.msg-text{font-size:17px;line-height:1.7;color:var(--text);font-family:var(--sans);font-weight:300;}
 .msg.player .msg-speaker{color:var(--accent)}
 .msg.npc .msg-speaker{color:var(--accent2)}
 .msg.system-msg .msg-text{font-family:var(--mono);font-size:11px;color:var(--text-dim);font-style:italic;}
@@ -71,7 +71,25 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
 #choices{flex-shrink:0;border-top:1px solid var(--line);background:var(--bg2);padding:10px 20px;min-height:72px;display:flex;flex-direction:column;}
 #choices-label{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;}
 #choice-list{display:flex;flex-direction:column;gap:5px;}
-.choice-btn{background:none;border:1px solid var(--line);color:var(--text);font-family:var(--mono);font-size:12px;text-align:left;padding:7px 12px;cursor:pointer;border-radius:2px;letter-spacing:0.02em;transition:all 0.15s ease;position:relative;overflow:hidden;}
+.choice-btn{background:none;border:1px solid var(--line);color:var(--text);font-family:var(--mono);font-size:13px;text-align:left;padding:7px 12px;cursor:pointer;border-radius:2px;letter-spacing:0.02em;transition:all 0.15s ease;position:relative;overflow:hidden;}
+
+/* VOLUME SLIDER */
+#vol-wrap{display:flex;align-items:center;gap:6px;}
+#vol-label{font-size:9px;color:var(--text-muted);letter-spacing:0.08em;}
+#vol-slider{
+  -webkit-appearance:none;appearance:none;
+  width:56px;height:2px;background:var(--line);
+  border-radius:1px;outline:none;cursor:pointer;
+}
+#vol-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;width:10px;height:10px;border-radius:50%;
+  background:var(--text-dim);cursor:pointer;transition:background 0.15s;
+}
+#vol-slider:hover::-webkit-slider-thumb{background:var(--accent);}
+#vol-slider::-moz-range-thumb{
+  width:10px;height:10px;border-radius:50%;border:none;
+  background:var(--text-dim);cursor:pointer;
+}
 .choice-btn::before{content:'';position:absolute;left:0;top:0;bottom:0;width:0;background:var(--accent);opacity:0.07;transition:width 0.2s ease;}
 .choice-btn:hover{border-color:var(--accent);color:var(--accent)}
 .choice-btn:hover::before{width:100%}
@@ -520,7 +538,10 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
         <div class="signal-bar" style="height:13px" id="sb3"></div>
       </div>
     </div>
-    <button id="audio-btn" onclick="toggleAudio()">♪ ON</button>
+    <div id="vol-wrap">
+      <span id="vol-label">♪</span>
+      <input id="vol-slider" type="range" min="0" max="100" value="60" step="1" oninput="setVolume(this.value)">
+    </div>
   </div>
   <div id="scene">
     <!-- LEFT: main narrative column -->
@@ -562,7 +583,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
 // ═══════════════════════════════════════════════════════
 // GAME STATE
 // ═══════════════════════════════════════════════════════
-const G={reliability:100,time:22*60+14,chapter:0,flags:{},choiceCount:0,endingType:'',contradictions:0};
+const G={reliability:100,time:22*60+14,chapter:0,flags:{},choiceCount:0,endingType:'',contradictions:0,usedChoices:new Set()};
 
 // ═══════════════════════════════════════════════════════
 // AUDIO ENGINE — Web Audio API procedural music
@@ -577,7 +598,7 @@ function initAudio(){
     AC=new(window.AudioContext||window.webkitAudioContext)();
     masterGain=AC.createGain();
     masterGain.gain.setValueAtTime(0.0,AC.currentTime);
-    masterGain.gain.linearRampToValueAtTime(0.6,AC.currentTime+3);
+    masterGain.gain.linearRampToValueAtTime(0.51,AC.currentTime+3); // 60% of 0.85
     masterGain.connect(AC.destination);
 
     // ── DRONE — deep ambient pad, two detuned saws
@@ -725,17 +746,10 @@ function playRevealStrike(){
   hi.start();hi.stop(AC.currentTime+0.6);
 }
 
-function toggleAudio(){
-  if(!audioInitialized) return;
-  audioEnabled=!audioEnabled;
-  const btn=document.getElementById('audio-btn');
-  if(audioEnabled){
-    masterGain.gain.linearRampToValueAtTime(0.6,AC.currentTime+0.5);
-    btn.textContent='♪ ON';
-  } else {
-    masterGain.gain.linearRampToValueAtTime(0,AC.currentTime+0.5);
-    btn.textContent='♪ OFF';
-  }
+function setVolume(val){
+  if(!audioInitialized||!masterGain) return;
+  const v=Math.max(0,Math.min(100,Number(val)))/100;
+  masterGain.gain.linearRampToValueAtTime(v*0.85,AC.currentTime+0.1);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -855,6 +869,9 @@ function drawScene(){
   if(sceneState.glitchLevel>0.05) drawGlitch(W,H);
 
   drawBloom(W,H);
+
+  // POV foreground — Mara's hands on the parapet wall
+  drawPOV(W,H);
 
   // Bottom fade into dialogue area
   const fade=ctx.createLinearGradient(0,H*0.55,0,H);
@@ -1183,6 +1200,122 @@ function drawRooftopDetails(W,H){
   ctx.fillStyle='rgba(38,42,60,0.8)';ctx.fillRect(dx+20,dy+26,3,6);
 }
 
+// ── FIRST-PERSON POV — Mara's hands resting on the parapet wall
+function drawPOV(W,H){
+  const t=sceneState.t;
+  const wallY=H*0.74;
+  const wallH=H-wallY;
+  const wallG=ctx.createLinearGradient(0,wallY,0,H);
+  wallG.addColorStop(0,'#2a2a3a');
+  wallG.addColorStop(0.12,'#222230');
+  wallG.addColorStop(1,'#141420');
+  ctx.fillStyle=wallG;
+  ctx.fillRect(0,wallY,W,wallH);
+  // Bright rim
+  const rimG=ctx.createLinearGradient(0,wallY,0,wallY+3);
+  rimG.addColorStop(0,'rgba(70,74,100,0.9)');
+  rimG.addColorStop(1,'rgba(30,32,46,0)');
+  ctx.fillStyle=rimG;
+  ctx.fillRect(0,wallY,W,3);
+  // Perspective lines
+  ctx.save();
+  ctx.strokeStyle='rgba(18,18,28,0.5)';ctx.lineWidth=0.6;
+  for(let x=0;x<W;x+=W/14){
+    const startX=W/2+(x-W/2)*0.2;
+    ctx.beginPath();ctx.moveTo(startX,wallY+1);ctx.lineTo(x,H);ctx.stroke();
+  }
+  ctx.restore();
+  // Expansion joints
+  ctx.strokeStyle='rgba(12,12,18,0.6)';ctx.lineWidth=0.8;
+  for(let cx2=W*0.15;cx2<W;cx2+=W*0.22){
+    ctx.beginPath();ctx.moveTo(cx2,wallY+2);ctx.lineTo(cx2+4,H);ctx.stroke();
+  }
+  // Rain film
+  if(sceneState.rain>0.15){
+    const rp=sceneState.rain*0.25;
+    const wg=ctx.createLinearGradient(0,wallY,0,H);
+    wg.addColorStop(0,`rgba(30,40,70,${rp})`);
+    wg.addColorStop(1,'transparent');
+    ctx.fillStyle=wg;ctx.fillRect(0,wallY,W,wallH);
+  }
+  // Hands
+  drawHand(W*0.28,wallY+8,t,false,sceneState.glitchLevel);
+  drawHand(W*0.68,wallY+8,t,true,sceneState.glitchLevel);
+  // Radio on wall
+  const rx=W*0.47,ry=wallY+6;
+  ctx.fillStyle='rgba(20,22,34,0.95)';
+  ctx.beginPath();ctx.roundRect(rx,ry,22,14,2);ctx.fill();
+  const rsg=ctx.createLinearGradient(rx,ry,rx,ry+14);
+  rsg.addColorStop(0,'rgba(80,110,160,0.3)');
+  rsg.addColorStop(1,'rgba(60,80,120,0.1)');
+  ctx.fillStyle=rsg;
+  ctx.beginPath();ctx.roundRect(rx+2,ry+2,18,8,1);ctx.fill();
+  const sOn=Math.sin(t*2.4)>0.3;
+  ctx.fillStyle=sOn?'rgba(120,200,120,0.9)':'rgba(40,80,40,0.4)';
+  ctx.beginPath();ctx.arc(rx+19,ry+12,1.5,0,Math.PI*2);ctx.fill();
+}
+
+function drawHand(cx,baseY,t,isRight,glitchLvl){
+  const flip=isRight?1:-1;
+  const breathe=Math.sin(t*0.6+(isRight?1:0))*1.2;
+  const y=baseY+breathe;
+  ctx.save();
+  ctx.translate(cx,y);
+  if(glitchLvl>0.2) ctx.translate(Math.sin(t*3+cx)*glitchLvl*2,0);
+  const skin='rgba(42,34,30,0.92)';
+  const knuckle='rgba(52,42,38,0.85)';
+  // Sleeve
+  ctx.fillStyle='rgba(16,16,24,0.95)';
+  ctx.beginPath();
+  ctx.moveTo(flip*-14,20);
+  ctx.bezierCurveTo(flip*-16,10,flip*-14,4,flip*-11,0);
+  ctx.lineTo(flip*11,0);
+  ctx.bezierCurveTo(flip*14,4,flip*16,10,flip*14,20);
+  ctx.closePath();ctx.fill();
+  // Palm
+  ctx.fillStyle=skin;
+  ctx.beginPath();
+  ctx.moveTo(flip*-11,0);
+  ctx.bezierCurveTo(flip*-13,-4,flip*-12,-14,flip*-9,-18);
+  ctx.lineTo(flip*9,-18);
+  ctx.bezierCurveTo(flip*12,-14,flip*13,-4,flip*11,0);
+  ctx.closePath();ctx.fill();
+  // Fingers
+  const fingers=[
+    {ox:flip*-9,w:4.5,len:7,bent:0.3},
+    {ox:flip*-3,w:5,len:8,bent:0.1},
+    {ox:flip*3,w:5,len:8,bent:0.2},
+    {ox:flip*8,w:4,len:6,bent:0.5},
+  ];
+  for(const f of fingers){
+    ctx.fillStyle=skin;
+    ctx.beginPath();
+    ctx.moveTo(f.ox-f.w*0.5,-18);
+    ctx.bezierCurveTo(f.ox-f.w*0.5,-18-f.len,f.ox+f.w*0.5+f.bent*flip,-18-f.len,f.ox+f.w*0.5,-18);
+    ctx.closePath();ctx.fill();
+    ctx.strokeStyle=knuckle;ctx.lineWidth=0.6;
+    ctx.beginPath();
+    ctx.moveTo(f.ox-f.w*0.3,-19);
+    ctx.bezierCurveTo(f.ox,-20,f.ox+f.w*0.2,-19,f.ox+f.w*0.3,-18.5);
+    ctx.stroke();
+  }
+  // Thumb
+  ctx.fillStyle=skin;
+  ctx.beginPath();
+  ctx.moveTo(flip*-11,-4);
+  ctx.bezierCurveTo(flip*-17,-6,flip*-18,-14,flip*-14,-16);
+  ctx.lineTo(flip*-10,-14);
+  ctx.bezierCurveTo(flip*-11,-10,flip*-10,-6,flip*-9,-4);
+  ctx.closePath();ctx.fill();
+  // Rim light
+  ctx.strokeStyle='rgba(80,90,130,0.3)';ctx.lineWidth=0.7;
+  ctx.beginPath();
+  ctx.moveTo(flip*-11,0);
+  ctx.bezierCurveTo(flip*-12,-8,flip*-10,-15,flip*-9,-18);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawRain(W,H){
   ctx.save();
   for(const p of rainParticles){
@@ -1295,6 +1428,7 @@ function initTitleCanvas(){
 // GAME ENGINE
 // ═══════════════════════════════════════════════════════
 let isProcessing=false;
+let typingPaused=false; // paused while desk viewer is open
 
 function updateReliabilityUI(){
   const r=G.reliability;
@@ -1332,6 +1466,7 @@ function addMessage(speaker,text,cls=''){
     let i=0;
     const speed=cls.includes('system')||cls.includes('memory')||cls.includes('crack')?22:17;
     const timer=setInterval(()=>{
+      if(typingPaused) return; // wait while desk is open
       txt.textContent=text.slice(0,i);i++;
       dlg.scrollTop=dlg.scrollHeight;
       if(i>text.length){clearInterval(timer);setTimeout(resolve,160);}
@@ -1343,9 +1478,15 @@ function showChoices(choices, isRefresh=false){
   const list=document.getElementById('choice-list');
   const label=document.getElementById('choices-label');
   list.innerHTML='';label.style.opacity='1';
-  pendingChoices=choices;
+
+  // Filter out choices whose flag has already been used (prevents loops)
+  const available=choices.filter(c=> !c.flag || !G.usedChoices.has(c.flag));
+  // Fallback: if everything filtered, show all (shouldn't happen in practice)
+  const toShow=available.length>0?available:choices;
+
+  pendingChoices=toShow;
   const prefixes=['A','B','C','D','E'];
-  choices.forEach((c,i)=>{
+  toShow.forEach((c,i)=>{
     const isLocked=c.requiresDoc && !readIds.has(c.requiresDoc);
     const btn=document.createElement('button');
     let cls='choice-btn';
@@ -1607,14 +1748,13 @@ function renderDesk(){
 function openEvidenceViewer(id){
   const item=EVIDENCE_DB[id];
   if(!item) return;
-  const wasNew=item._new;
   item._new=false;
   renderDesk();
   document.getElementById('ev-view-title').textContent=item.name;
   document.getElementById('ev-view-body').innerHTML=item.render();
   document.getElementById('evidence-viewer').classList.add('open');
   if(audioInitialized) playPageTurn();
-  // Mark as read and unlock any waiting choices
+  typingPaused=true; // pause narrative while player reads
   if(!readIds.has(id)){
     readIds.add(id);
     if(item.unlocksChoice) refreshChoices();
@@ -1623,6 +1763,7 @@ function openEvidenceViewer(id){
 
 function closeEvidenceViewer(){
   document.getElementById('evidence-viewer').classList.remove('open');
+  typingPaused=false; // resume
 }
 
 // Called after reading a doc to re-render the active choice list
@@ -1648,6 +1789,8 @@ function clearChoices(){
 
 async function makeChoice(choice){
   clearChoices();G.choiceCount++;updateTime();
+  // Record this choice as used so it won't appear again
+  if(choice.flag) G.usedChoices.add(choice.flag);
   if(choice.reliability!==undefined){
     G.reliability=Math.max(0,Math.min(100,G.reliability+choice.reliability));
     updateReliabilityUI();
@@ -1712,12 +1855,73 @@ async function runNode(id){
 // ═══════════════════════════════════════════════════════
 const STORY={
 
+  // ─── PRE-INTRO: ARRIVAL — before the system, before the role ──────────
+  pre_intro:{
+    setup:async()=>{
+      setChapter('—');
+      setSceneChapter(0);
+      setAtmosphere('Harmon Tower — Elevator 34F','22:08. The city hums thirty-four floors below your feet.');
+    },
+    messages:[
+      {speaker:'[INTERNAL]',text:'The elevator smells like old coffee and someone else\'s anxiety.',cls:'system-msg',pause:900},
+      {speaker:'[INTERNAL]',text:'Floor thirty-four. Roof access.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'You\'ve been doing this job for six years. You know the moment before the door opens.',cls:'system-msg',pause:800},
+      {speaker:'[INTERNAL]',text:'You check your badge. Adjust your coat. You don\'t check the file again — you read it twice in the car.',cls:'system-msg',pause:900},
+      {speaker:'RADIO',text:'Chen. Uniform says he\'s been stationary for twenty-two minutes. No sudden movement. That\'s the good news.',pause:600},
+      {speaker:'DR. CHEN',text:'What\'s the bad news.',cls:'player',pause:400},
+      {speaker:'RADIO',text:'He won\'t speak to anyone. Waved off the last two negotiators. Asked for someone senior.',pause:600},
+      {speaker:'RADIO',text:'You were the senior.',pause:400},
+      {speaker:'[INTERNAL]',text:'The elevator stops.',cls:'system-msg',pause:700},
+      {speaker:'[INTERNAL]',text:'The doors open onto a concrete corridor. One bare bulb. A door at the end marked ROOF ACCESS — NO ENTRY.',cls:'system-msg',pause:1000},
+      {speaker:'[INTERNAL]',text:'You push it open.',cls:'system-msg',pause:600},
+    ],
+    auto:'pre_intro_2',autoDelay:400,
+  },
+
+  pre_intro_2:{
+    setup:async()=>{
+      setAtmosphere('Harmon Tower — Roof Access, Floor 34','The cold hits first. Then the wind. Then the city.');
+      addEvidence('case_file_7_19');
+      addEvidence('chen_id_badge');
+    },
+    messages:[
+      {speaker:'[INTERNAL]',text:'The roof is bigger than you expected. These always are.',cls:'system-msg',pause:700},
+      {speaker:'[INTERNAL]',text:'To your left: a ventilation unit grinding against itself. To your right: a water tower, cables, the usual urban debris.',cls:'system-msg',pause:1000},
+      {speaker:'[INTERNAL]',text:'And at the far edge — a figure.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'Dark coat. Standing very still. Looking out over the city like he owns it, or like he\'s saying goodbye to it. You\'ve seen both before.',cls:'system-msg',pause:1100},
+      {speaker:'[INTERNAL]',text:'You check the file on instinct. Kael, Thomas. Thirty-four. Former data analyst.',cls:'system-msg',pause:700},
+      {speaker:'[INTERNAL]',text:'No prior incidents. No criminal record. No weapons. Everything clean.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'Almost too clean.',cls:'system-msg',pause:800},
+      {speaker:'RADIO',text:'Chen, confirm visual.',pause:400},
+      {speaker:'DR. CHEN',text:'I have him. Stand by.',cls:'player',pause:500},
+      {speaker:'[INTERNAL]',text:'You take three steps forward onto the roof.',cls:'system-msg',pause:500},
+      {speaker:'[INTERNAL]',text:'He doesn\'t turn around.',cls:'system-msg',pause:700},
+    ],
+    auto:'pre_intro_3',autoDelay:400,
+  },
+
+  pre_intro_3:{
+    setup:async()=>{
+      setChapter('01 — First Contact');
+      setSceneChapter(0);
+      setSpotlight(true,0.65);
+      setAtmosphere('Harmon Tower — Roof, Floor 34','The wind is steady. You can hear the city breathing below.');
+    },
+    messages:[
+      {speaker:'[INTERNAL]',text:'The rules are simple. You don\'t escalate. You don\'t lie if you can help it. You don\'t make promises you can\'t keep.',cls:'system-msg',pause:900},
+      {speaker:'[INTERNAL]',text:'You find the thing they actually need to say, and you give them enough space to say it.',cls:'system-msg',pause:800},
+      {speaker:'[INTERNAL]',text:'Usually it works.',cls:'system-msg',pause:500},
+      {speaker:'[INTERNAL]',text:'You\'re about ten metres away now. He still hasn\'t moved.',cls:'system-msg',pause:700},
+      {speaker:'[INTERNAL]',text:'Time to say something.',cls:'system-msg',pause:600},
+    ],
+    auto:'thomas_first',autoDelay:600,
+  },
+
   // ─── CHAPTER 1: FIRST CONTACT ───────────────────────
   intro:{
     setup:async()=>{
       setChapter('01 — First Contact');
       setSceneChapter(0);
-      setChenVisible(true,0.12);
       setSpotlight(true,0.65);
       setAtmosphere('Harmon Tower — Roof Access, Floor 34','The city looks wrong from up here. Like a circuit board no one finished.');
       addEvidence('case_file_7_19');
@@ -1728,7 +1932,7 @@ const STORY={
       {speaker:'[SYSTEM]',text:'Case file 7-19. Subject: KAEL, Thomas. Age: 34. Former systems analyst, Vantex Corp.',cls:'system-msg',pause:500},
       {speaker:'[SYSTEM]',text:'Subject accessed roof via maintenance stairwell at 21:47. No weapons detected. No prior incidents on record.',cls:'system-msg',pause:600},
       {speaker:'[SYSTEM]',text:'Your mission: Talk him down. Establish rapport. Do not escalate.',cls:'system-msg',pause:400},
-      {speaker:'RADIO',text:'Chen. You\'re up. The uniform said he\'s been out there twenty minutes. Hasn\'t moved. Just... standing.'},
+      {speaker:'RADIO',text:'Chen. You\'re up. The uniform said she\'s been out there twenty minutes. Hasn\'t moved. Just... standing.'},
       {speaker:'DR. CHEN',text:'I\'m on the roof now. I can see him.',cls:'player'},
     ],
     auto:'thomas_first',autoDelay:1100,
@@ -2252,31 +2456,19 @@ const STORY={
   // ─── ENDING ROUTER — picks ending from accumulated flags ───
   ending_router:{
     setup:async()=>{
-      // Determine ending from the combination of flags + reliability
       const f=G.flags, r=G.reliability;
       let ending;
-
-      if(f.fractured && r<35){
-        ending='ending_lost';
-      } else if(f.grabbed_thomas && !f.believes_thomas){
-        ending='ending_force';
-      } else if(f.grabbed_thomas && f.believes_thomas){
-        ending='ending_reckless_believer';
-      } else if(f.sat_on_ledge && f.believes_thomas){
-        ending='ending_witness_together';
-      } else if(f.believes_thomas && f.used_elisa_note && f.confronted_batch){
-        ending='ending_evidence_chain';
-      } else if(f.believes_thomas){
-        ending='ending_witness';
-      } else if(f.partial_belief && f.radio_disclosed){
-        ending='ending_operator_burned';
-      } else if(f.partial_belief || f.strategic_empathy){
-        ending='ending_operator';
-      } else if(f.uncertainty || f.buys_time){
-        ending='ending_static';
-      } else {
-        ending='ending_static';
-      }
+      if(f.fractured && r<35)                                    ending='ending_lost';
+      else if(f.grabbed_thomas && !f.believes_thomas)            ending='ending_force';
+      else if(f.grabbed_thomas && f.believes_thomas)             ending='ending_reckless_believer';
+      else if(f.sat_on_ledge && f.believes_thomas)               ending='ending_witness_together';
+      else if(f.believes_thomas && f.used_elisa_note && f.confronted_batch) ending='ending_evidence_chain';
+      else if(f.believes_thomas)                                 ending='ending_witness';
+      else if(f.partial_belief && f.radio_disclosed)             ending='ending_operator_burned';
+      else if(f.partial_belief || f.strategic_empathy)           ending='ending_operator';
+      else                                                       ending='ending_static';
+      // Must clear isProcessing before calling runNode again, otherwise it returns immediately
+      isProcessing=false;
       await runNode(ending);
     },
     messages:[]
@@ -2529,7 +2721,7 @@ function startGame(){
     document.getElementById('game').style.display='flex';
     initCanvas();
     updateReliabilityUI();
-    runNode('intro');
+    runNode('pre_intro');
   },1000);
 }
 
