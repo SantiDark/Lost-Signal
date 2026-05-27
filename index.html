@@ -10,305 +10,108 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#0a0a0b;
-  --bg2:#111114;
-  --bg3:#16161a;
-  --surface:#1c1c22;
-  --surface2:#242430;
-  --line:#2a2a38;
-  --text:#c8c8d4;
-  --text-dim:#6a6a7e;
-  --text-muted:#3a3a50;
-  --accent:#c8a87a;
-  --accent2:#7a9fc8;
-  --danger:#c87a7a;
-  --success:#7ac8a8;
-  --mono:'IBM Plex Mono',monospace;
-  --sans:'IBM Plex Sans',sans-serif;
+  --bg:#0a0a0b;--bg2:#111114;--bg3:#16161a;
+  --surface:#1c1c22;--surface2:#242430;--line:#2a2a38;
+  --text:#c8c8d4;--text-dim:#6a6a7e;--text-muted:#3a3a50;
+  --accent:#c8a87a;--accent2:#7a9fc8;--danger:#c87a7a;--success:#7ac8a8;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
 }
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:14px;line-height:1.6}
-
-/* SCANLINE OVERLAY */
-body::after{
-  content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
-  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);
-}
-
-/* NOISE TEXTURE */
-body::before{
-  content:'';position:fixed;inset:0;pointer-events:none;z-index:998;opacity:0.03;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-#game{
-  position:fixed;inset:0;display:flex;flex-direction:column;
-  overflow:hidden;
-}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.025) 2px,rgba(0,0,0,0.025) 4px);}
+#game{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden;}
 
 /* HUD */
-#hud{
-  flex-shrink:0;
-  padding:12px 24px;
-  border-bottom:1px solid var(--line);
-  display:flex;align-items:center;gap:20px;
-  background:var(--bg2);
-  font-size:11px;letter-spacing:0.08em;color:var(--text-dim);
-}
+#hud{flex-shrink:0;padding:10px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:20px;background:var(--bg2);font-size:11px;letter-spacing:0.08em;color:var(--text-dim);}
 #hud-title{font-weight:500;color:var(--text);letter-spacing:0.15em;text-transform:uppercase;font-size:10px}
 #hud-sep{flex:1}
 #reliability-wrap{display:flex;align-items:center;gap:8px}
 #reliability-label{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim)}
-#reliability-bar{
-  width:100px;height:3px;background:var(--line);border-radius:2px;overflow:hidden;
-}
-#reliability-fill{
-  height:100%;width:100%;background:var(--accent);border-radius:2px;
-  transition:width 0.8s ease,background 0.8s ease;
-}
+#reliability-bar{width:100px;height:3px;background:var(--line);border-radius:2px;overflow:hidden;}
+#reliability-fill{height:100%;width:100%;background:var(--accent);border-radius:2px;transition:width 0.8s ease,background 0.8s ease;}
 #time-display{font-size:10px;color:var(--text-dim);letter-spacing:0.1em}
 #chapter-display{font-size:10px;color:var(--text-dim);letter-spacing:0.05em}
+#signal-bars{display:flex;align-items:flex-end;gap:2px;height:14px;}
+.signal-bar{width:3px;background:var(--accent);border-radius:1px;transition:opacity 0.5s ease,background 0.5s ease;}
+#audio-btn{background:none;border:1px solid var(--line);color:var(--text-muted);font-family:var(--mono);font-size:9px;letter-spacing:0.1em;padding:3px 7px;cursor:pointer;transition:all 0.2s ease;}
+#audio-btn:hover{border-color:var(--text-dim);color:var(--text-dim);}
 
-/* MAIN SCENE */
-#scene{
-  flex:1;display:flex;flex-direction:column;overflow:hidden;
-  position:relative;
-}
+/* SCENE */
+#scene{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
 
 /* VISUAL PANEL */
-#visual{
-  flex-shrink:0;height:260px;position:relative;overflow:hidden;
-  border-bottom:1px solid var(--line);
-  background:var(--bg);
-}
-#visual-canvas{
-  position:absolute;inset:0;width:100%;height:100%;
-}
-#visual-overlay{
-  position:absolute;inset:0;
-  background:linear-gradient(to bottom,transparent 60%,var(--bg) 100%);
-  pointer-events:none;
-}
-#location-tag{
-  position:absolute;top:14px;left:20px;
-  font-size:10px;letter-spacing:0.15em;text-transform:uppercase;
-  color:var(--text-dim);border:1px solid var(--line);
-  padding:3px 8px;background:rgba(10,10,11,0.7);
-}
-#atmosphere-text{
-  position:absolute;bottom:24px;left:20px;right:20px;
-  font-size:11px;color:var(--text-dim);font-style:italic;
-  font-family:var(--sans);font-weight:300;
-  letter-spacing:0.03em;
-}
+#visual{flex-shrink:0;height:240px;position:relative;overflow:hidden;border-bottom:1px solid var(--line);background:var(--bg);}
+#visual-canvas{position:absolute;inset:0;width:100%;height:100%;}
+#visual-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 55%,var(--bg) 100%);pointer-events:none;}
+#location-tag{position:absolute;top:14px;left:20px;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-dim);border:1px solid var(--line);padding:3px 8px;background:rgba(10,10,11,0.8);}
+#atmosphere-text{position:absolute;bottom:20px;left:20px;right:20px;font-size:11px;color:var(--text-dim);font-style:italic;font-family:var(--sans);font-weight:300;letter-spacing:0.03em;transition:color 1s ease;}
 
-/* DIALOGUE BOX */
-#dialogue{
-  flex:1;overflow-y:auto;padding:24px 28px;
-  display:flex;flex-direction:column;gap:0;
-  scroll-behavior:smooth;
-}
-#dialogue::-webkit-scrollbar{width:3px}
-#dialogue::-webkit-scrollbar-track{background:transparent}
+/* DIALOGUE */
+#dialogue{flex:1;overflow-y:auto;padding:20px 28px;display:flex;flex-direction:column;scroll-behavior:smooth;}
+#dialogue::-webkit-scrollbar{width:2px}
 #dialogue::-webkit-scrollbar-thumb{background:var(--line)}
-
-.msg{
-  display:flex;flex-direction:column;gap:4px;
-  margin-bottom:16px;opacity:0;
-  animation:fadeIn 0.5s ease forwards;
-}
-.msg-speaker{
-  font-size:10px;letter-spacing:0.12em;text-transform:uppercase;
-  color:var(--text-dim);
-}
-.msg-text{
-  font-size:13px;line-height:1.7;color:var(--text);
-  font-family:var(--sans);font-weight:300;
-}
+.msg{display:flex;flex-direction:column;gap:3px;margin-bottom:14px;opacity:0;animation:fadeIn 0.5s ease forwards;}
+.msg-speaker{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-dim);}
+.msg-text{font-size:13px;line-height:1.75;color:var(--text);font-family:var(--sans);font-weight:300;}
 .msg.player .msg-speaker{color:var(--accent)}
-.msg.player .msg-text{color:var(--text)}
 .msg.npc .msg-speaker{color:var(--accent2)}
-.msg.system-msg .msg-text{
-  font-family:var(--mono);font-size:11px;
-  color:var(--text-dim);font-style:italic;
-}
-.msg.glitch .msg-text{
-  color:var(--danger);
-  animation:glitchText 0.3s ease;
-}
-.msg.highlight .msg-text{
-  color:var(--accent);border-left:2px solid var(--accent);padding-left:12px;
-}
+.msg.system-msg .msg-text{font-family:var(--mono);font-size:11px;color:var(--text-dim);font-style:italic;}
+.msg.highlight .msg-text{color:var(--accent);border-left:2px solid var(--accent);padding-left:12px;}
+.msg.memory .msg-text{color:#8a7ab8;font-style:italic;font-family:var(--mono);font-size:11px;border-left:2px solid #3a2a58;padding-left:12px;}
+.msg.crack .msg-text{color:var(--danger);font-family:var(--mono);font-size:11px;}
+.msg.doubt .msg-text{color:#7a9a7a;font-family:var(--sans);font-size:12px;font-style:italic;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@keyframes glitchText{0%{transform:translateX(0)}20%{transform:translateX(-3px)}40%{transform:translateX(3px)}60%{transform:translateX(-2px)}80%{transform:translateX(2px)}100%{transform:translateX(0)}}
+@keyframes flicker{0%,100%{opacity:1}30%{opacity:0.6}50%{opacity:0.9}70%{opacity:0.5}}
 
-@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-@keyframes glitchText{
-  0%{transform:translateX(0)}
-  20%{transform:translateX(-3px)}
-  40%{transform:translateX(3px)}
-  60%{transform:translateX(-2px)}
-  80%{transform:translateX(2px)}
-  100%{transform:translateX(0)}
-}
-
-/* CHOICE PANEL */
-#choices{
-  flex-shrink:0;
-  border-top:1px solid var(--line);
-  background:var(--bg2);
-  padding:12px 24px;
-  min-height:80px;
-  display:flex;flex-direction:column;gap:0;
-}
-#choices-label{
-  font-size:10px;letter-spacing:0.12em;text-transform:uppercase;
-  color:var(--text-muted);margin-bottom:10px;
-}
-#choice-list{
-  display:flex;flex-direction:column;gap:6px;
-}
-.choice-btn{
-  background:none;border:1px solid var(--line);
-  color:var(--text);font-family:var(--mono);font-size:12px;
-  text-align:left;padding:8px 12px;cursor:pointer;
-  border-radius:2px;letter-spacing:0.02em;
-  transition:all 0.15s ease;
-  position:relative;overflow:hidden;
-}
-.choice-btn::before{
-  content:'';position:absolute;left:0;top:0;bottom:0;width:0;
-  background:var(--accent);opacity:0.08;transition:width 0.2s ease;
-}
+/* CHOICES */
+#choices{flex-shrink:0;border-top:1px solid var(--line);background:var(--bg2);padding:10px 24px;min-height:78px;display:flex;flex-direction:column;}
+#choices-label{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;}
+#choice-list{display:flex;flex-direction:column;gap:5px;}
+.choice-btn{background:none;border:1px solid var(--line);color:var(--text);font-family:var(--mono);font-size:12px;text-align:left;padding:7px 12px;cursor:pointer;border-radius:2px;letter-spacing:0.02em;transition:all 0.15s ease;position:relative;overflow:hidden;}
+.choice-btn::before{content:'';position:absolute;left:0;top:0;bottom:0;width:0;background:var(--accent);opacity:0.07;transition:width 0.2s ease;}
 .choice-btn:hover{border-color:var(--accent);color:var(--accent)}
 .choice-btn:hover::before{width:100%}
 .choice-btn:active{transform:scale(0.99)}
-.choice-btn .choice-prefix{
-  color:var(--text-dim);margin-right:8px;font-size:10px;
-}
-.choice-btn.danger-choice{border-color:var(--line)}
+.choice-btn .choice-prefix{color:var(--text-dim);margin-right:8px;font-size:10px;}
 .choice-btn.danger-choice:hover{border-color:var(--danger);color:var(--danger)}
 .choice-btn.danger-choice:hover::before{background:var(--danger)}
-#choices-thinking{
-  color:var(--text-muted);font-size:11px;font-style:italic;
-  animation:blink 1.2s ease infinite;
-  display:none;
-}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
 
 /* MEMORY FLASH */
-#memory-flash{
-  position:fixed;inset:0;z-index:900;
-  background:rgba(200,168,122,0.04);
-  pointer-events:none;opacity:0;
-  transition:opacity 0.3s ease;
-}
+#memory-flash{position:fixed;inset:0;z-index:900;background:rgba(200,168,122,0.04);pointer-events:none;opacity:0;transition:opacity 0.3s ease;}
 #memory-flash.active{opacity:1}
+#red-flash{position:fixed;inset:0;z-index:901;background:rgba(200,100,100,0.06);pointer-events:none;opacity:0;transition:opacity 0.2s ease;}
+#red-flash.active{opacity:1}
 
 /* TITLE SCREEN */
-#title-screen{
-  position:fixed;inset:0;z-index:800;
-  background:var(--bg);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:0;
-}
-#title-ascii{
-  font-family:var(--mono);font-size:11px;color:var(--accent);
-  letter-spacing:0.05em;line-height:1.4;text-align:center;
-  opacity:0;animation:fadeIn 1s ease 0.5s forwards;
-}
-#title-main{
-  font-family:var(--mono);font-size:clamp(28px,5vw,52px);font-weight:500;
-  letter-spacing:0.3em;text-transform:uppercase;color:var(--text);
-  margin-top:24px;
-  opacity:0;animation:fadeIn 1s ease 1.2s forwards;
-}
-#title-sub{
-  font-family:var(--sans);font-size:12px;font-weight:300;
-  color:var(--text-dim);letter-spacing:0.2em;text-transform:uppercase;
-  margin-top:8px;
-  opacity:0;animation:fadeIn 1s ease 1.6s forwards;
-}
-#title-info{
-  margin-top:48px;font-size:11px;color:var(--text-muted);
-  letter-spacing:0.1em;text-align:center;line-height:2;
-  opacity:0;animation:fadeIn 1s ease 2s forwards;
-}
-#title-start{
-  margin-top:36px;
-  background:none;border:1px solid var(--accent);
-  color:var(--accent);font-family:var(--mono);font-size:12px;
-  letter-spacing:0.2em;text-transform:uppercase;
-  padding:10px 32px;cursor:pointer;
-  opacity:0;animation:fadeIn 1s ease 2.4s forwards;
-  transition:all 0.2s ease;
-}
+#title-screen{position:fixed;inset:0;z-index:800;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;}
+#title-canvas{position:absolute;inset:0;pointer-events:none;}
+#title-content{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;}
+#title-ascii{font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:0.05em;line-height:1.4;text-align:center;opacity:0;animation:fadeIn 1s ease 0.5s forwards;}
+#title-main{font-family:var(--mono);font-size:clamp(28px,5vw,52px);font-weight:500;letter-spacing:0.3em;text-transform:uppercase;color:var(--text);margin-top:20px;opacity:0;animation:fadeIn 1s ease 1.2s forwards;}
+#title-sub{font-family:var(--sans);font-size:12px;font-weight:300;color:var(--text-dim);letter-spacing:0.2em;text-transform:uppercase;margin-top:6px;opacity:0;animation:fadeIn 1s ease 1.6s forwards;}
+#title-info{margin-top:40px;font-size:11px;color:var(--text-muted);letter-spacing:0.1em;text-align:center;line-height:2.2;opacity:0;animation:fadeIn 1s ease 2s forwards;}
+#title-start{margin-top:32px;background:none;border:1px solid var(--accent);color:var(--accent);font-family:var(--mono);font-size:12px;letter-spacing:0.2em;text-transform:uppercase;padding:10px 32px;cursor:pointer;opacity:0;animation:fadeIn 1s ease 2.4s forwards;transition:all 0.2s ease;}
 #title-start:hover{background:var(--accent);color:var(--bg)}
 
 /* END SCREEN */
-#end-screen{
-  position:fixed;inset:0;z-index:800;
-  background:var(--bg);
-  display:none;flex-direction:column;align-items:center;justify-content:center;
-  padding:40px;text-align:center;gap:20px;
-}
+#end-screen{position:fixed;inset:0;z-index:800;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center;gap:18px;opacity:0;transition:opacity 1s ease;}
 #end-title{font-size:32px;letter-spacing:0.3em;text-transform:uppercase;color:var(--text)}
-#end-subtitle{font-size:13px;color:var(--text-dim);font-family:var(--sans);font-weight:300;max-width:480px;line-height:1.8}
-#end-stats{
-  display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:8px;max-width:480px;
-}
-.end-stat{
-  border:1px solid var(--line);padding:12px 16px;
-}
+#end-subtitle{font-size:13px;color:var(--text-dim);font-family:var(--sans);font-weight:300;max-width:480px;line-height:1.9}
+#end-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;max-width:480px;}
+.end-stat{border:1px solid var(--line);padding:11px 14px;}
 .end-stat-label{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim)}
 .end-stat-val{font-size:20px;color:var(--accent);margin-top:4px}
-#end-tagline{
-  font-family:var(--mono);font-size:11px;color:var(--text-muted);
-  font-style:italic;max-width:440px;line-height:1.8;margin-top:4px;
-}
-#end-restart{
-  background:none;border:1px solid var(--line);
-  color:var(--text-dim);font-family:var(--mono);font-size:11px;
-  letter-spacing:0.15em;text-transform:uppercase;
-  padding:8px 24px;cursor:pointer;margin-top:8px;
-  transition:all 0.2s ease;
-}
+#end-tagline{font-family:var(--mono);font-size:11px;color:var(--text-muted);font-style:italic;max-width:440px;line-height:1.9;margin-top:2px;}
+#end-restart{background:none;border:1px solid var(--line);color:var(--text-dim);font-family:var(--mono);font-size:11px;letter-spacing:0.15em;text-transform:uppercase;padding:8px 24px;cursor:pointer;transition:all 0.2s ease;}
 #end-restart:hover{border-color:var(--text-dim);color:var(--text)}
 
-/* GLITCH EFFECT */
-.glitch-overlay{
-  position:fixed;inset:0;z-index:700;pointer-events:none;
-  background:transparent;
-}
-.glitch-active{
-  animation:screenGlitch 0.4s ease;
-}
-@keyframes screenGlitch{
-  0%{transform:translate(0)}
-  10%{transform:translate(-2px,1px)}
-  20%{transform:translate(2px,-1px)}
-  30%{transform:translate(-1px,2px)}
-  40%{transform:translate(1px,-2px)}
-  50%{transform:translate(0)}
-  60%{transform:translate(3px,0)}
-  70%{transform:translate(-3px,0)}
-  80%{transform:translate(0,2px)}
-  90%{transform:translate(0,-2px)}
-  100%{transform:translate(0)}
-}
-
-/* SIGNAL METER */
-#signal-bars{
-  display:flex;align-items:flex-end;gap:2px;height:14px;
-}
-.signal-bar{
-  width:3px;background:var(--accent);border-radius:1px;
-  transition:opacity 0.5s ease,background 0.5s ease;
-}
+/* GLITCH */
+.glitch-overlay{position:fixed;inset:0;z-index:700;pointer-events:none;background:transparent;}
+.glitch-active{animation:screenGlitch 0.4s ease;}
+@keyframes screenGlitch{0%{transform:translate(0)}10%{transform:translate(-2px,1px)}20%{transform:translate(2px,-1px)}30%{transform:translate(-1px,2px)}40%{transform:translate(1px,-2px)}50%{transform:translate(0)}60%{transform:translate(3px,0)}70%{transform:translate(-3px,0)}80%{transform:translate(0,2px)}90%{transform:translate(0,-2px)}100%{transform:translate(0)}}
 
 /* LOADING */
-#loading{
-  position:fixed;inset:0;z-index:1000;background:var(--bg);
-  display:flex;align-items:center;justify-content:center;
-  font-size:11px;letter-spacing:0.2em;color:var(--text-dim);
-}
+#loading{position:fixed;inset:0;z-index:1000;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:11px;letter-spacing:0.2em;color:var(--text-dim);transition:opacity 0.5s ease;}
 </style>
 </head>
 <body>
@@ -316,20 +119,24 @@ body::before{
 <div id="loading">INITIALIZING...</div>
 <div class="glitch-overlay" id="glitch-overlay"></div>
 <div id="memory-flash"></div>
+<div id="red-flash"></div>
 
 <!-- TITLE SCREEN -->
 <div id="title-screen">
-  <div id="title-ascii">▓▓▓░░░▓▓▓░░░▓▓▓</div>
-  <div id="title-main">Signal Lost</div>
-  <div id="title-sub">A narrative systems game</div>
-  <div id="title-info">
-    You are Dr. Mara Chen — Crisis Negotiator, Division 7<br>
-    The man on the roof is named Thomas Kael<br>
-    You have 40 minutes before the window closes<br>
-    <br>
-    <span style="color:var(--text-muted);font-size:10px">Your choices alter what you see. What you remember. What is real.</span>
+  <canvas id="title-canvas"></canvas>
+  <div id="title-content">
+    <div id="title-ascii">▓▓▓░░░▓▓▓░░░▓▓▓</div>
+    <div id="title-main">Signal Lost</div>
+    <div id="title-sub">A narrative systems game</div>
+    <div id="title-info">
+      You are Dr. Mara Chen — Crisis Negotiator, Division 7<br>
+      The man on the roof is named Thomas Kael<br>
+      You have 40 minutes before the window closes<br>
+      <br>
+      <span style="color:var(--text-muted);font-size:10px">Your choices alter what you see. What you remember. What is real.</span>
+    </div>
+    <button id="title-start" onclick="startGame()">Begin Transmission</button>
   </div>
-  <button id="title-start" onclick="startGame()">Begin Transmission</button>
 </div>
 
 <!-- END SCREEN -->
@@ -337,18 +144,9 @@ body::before{
   <div id="end-title"></div>
   <div id="end-subtitle"></div>
   <div id="end-stats">
-    <div class="end-stat">
-      <div class="end-stat-label">Reliability</div>
-      <div class="end-stat-val" id="end-reliability">—</div>
-    </div>
-    <div class="end-stat">
-      <div class="end-stat-label">Choices</div>
-      <div class="end-stat-val" id="end-choices">—</div>
-    </div>
-    <div class="end-stat">
-      <div class="end-stat-label">Ending</div>
-      <div class="end-stat-val" id="end-type">—</div>
-    </div>
+    <div class="end-stat"><div class="end-stat-label">Reliability</div><div class="end-stat-val" id="end-reliability">—</div></div>
+    <div class="end-stat"><div class="end-stat-label">Choices</div><div class="end-stat-val" id="end-choices">—</div></div>
+    <div class="end-stat"><div class="end-stat-label">Ending</div><div class="end-stat-val" id="end-type">—</div></div>
   </div>
   <div id="end-tagline"></div>
   <button id="end-restart" onclick="location.reload()">Transmit Again</button>
@@ -356,7 +154,6 @@ body::before{
 
 <!-- MAIN GAME -->
 <div id="game" style="display:none">
-  <!-- HUD -->
   <div id="hud">
     <div id="hud-title">Signal Lost</div>
     <div id="chapter-display">—</div>
@@ -372,259 +169,627 @@ body::before{
         <div class="signal-bar" style="height:13px" id="sb3"></div>
       </div>
     </div>
+    <button id="audio-btn" onclick="toggleAudio()">♪ ON</button>
   </div>
-
-  <!-- SCENE -->
   <div id="scene">
-    <!-- VISUAL -->
     <div id="visual">
       <canvas id="visual-canvas"></canvas>
       <div id="visual-overlay"></div>
       <div id="location-tag">Location: Harmon Tower — Roof Access</div>
       <div id="atmosphere-text">Rain threatens. The city breathes below.</div>
     </div>
-
-    <!-- DIALOGUE -->
     <div id="dialogue"></div>
-
-    <!-- CHOICES -->
     <div id="choices">
       <div id="choices-label">— Your response —</div>
       <div id="choice-list"></div>
-      <div id="choices-thinking">Processing...</div>
     </div>
   </div>
 </div>
 
 <script>
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 // GAME STATE
-// ═══════════════════════════════════════════
-const G = {
-  reliability: 100,
-  time: 22*60+14,
-  chapter: 0,
-  flags: {},
-  choiceCount: 0,
-  endingType: '',
-  contradictions: 0,
-};
+// ═══════════════════════════════════════════════════════
+const G={reliability:100,time:22*60+14,chapter:0,flags:{},choiceCount:0,endingType:'',contradictions:0};
 
-// ═══════════════════════════════════════════
-// VISUAL RENDERER — Procedural scene art
-// ═══════════════════════════════════════════
-let canvas, ctx, animFrame, sceneState = {
-  scene: 'rooftop',
-  rain: 0,
-  fog: 0,
-  glitchLevel: 0,
-  t: 0,
-};
-const particles = [];
+// ═══════════════════════════════════════════════════════
+// AUDIO ENGINE — Web Audio API procedural music
+// ═══════════════════════════════════════════════════════
+let AC=null,audioEnabled=true,masterGain=null;
+let droneOsc=null,droneLfo=null,pulseOsc=null,rainNode=null,noiseGain=null;
+let tensionOsc=null,tensionGain=null,pianoCtx=null;
+let audioInitialized=false;
 
-function initCanvas() {
-  canvas = document.getElementById('visual-canvas');
-  ctx = canvas.getContext('2d');
-  canvas.width = canvas.offsetWidth;
-  canvas.height = canvas.offsetHeight;
-  for(let i=0;i<60;i++) particles.push({
-    x:Math.random()*canvas.width,
-    y:Math.random()*canvas.height,
-    vy:1+Math.random()*2,
-    vx:-0.5+Math.random(),
-    alpha:0.2+Math.random()*0.4,
-    len:8+Math.random()*16,
-  });
-  renderLoop();
+function initAudio(){
+  try{
+    AC=new(window.AudioContext||window.webkitAudioContext)();
+    masterGain=AC.createGain();
+    masterGain.gain.setValueAtTime(0.0,AC.currentTime);
+    masterGain.gain.linearRampToValueAtTime(0.6,AC.currentTime+3);
+    masterGain.connect(AC.destination);
+
+    // ── DRONE — deep ambient pad, two detuned saws
+    const droneFreq=55; // A1
+    droneOsc=AC.createOscillator();
+    droneOsc.type='sawtooth';
+    droneOsc.frequency.value=droneFreq;
+    const droneOsc2=AC.createOscillator();
+    droneOsc2.type='sawtooth';
+    droneOsc2.frequency.value=droneFreq*1.003; // slight detune = warmth
+
+    const droneFilter=AC.createBiquadFilter();
+    droneFilter.type='lowpass';
+    droneFilter.frequency.value=280;
+    droneFilter.Q.value=2;
+
+    const droneGain=AC.createGain();
+    droneGain.gain.value=0.18;
+
+    // LFO on filter cutoff — slow breath
+    droneLfo=AC.createOscillator();
+    droneLfo.frequency.value=0.07;
+    const lfoGain=AC.createGain();
+    lfoGain.gain.value=80;
+    droneLfo.connect(lfoGain);
+    lfoGain.connect(droneFilter.frequency);
+
+    droneOsc.connect(droneFilter);
+    droneOsc2.connect(droneFilter);
+    droneFilter.connect(droneGain);
+    droneGain.connect(masterGain);
+    droneOsc.start();droneOsc2.start();droneLfo.start();
+
+    // ── RAIN / WHITE NOISE ──
+    const bufferSize=AC.sampleRate*2;
+    const noiseBuffer=AC.createBuffer(1,bufferSize,AC.sampleRate);
+    const data=noiseBuffer.getChannelData(0);
+    for(let i=0;i<bufferSize;i++) data[i]=(Math.random()*2-1);
+    rainNode=AC.createBufferSource();
+    rainNode.buffer=noiseBuffer;
+    rainNode.loop=true;
+
+    const rainFilter=AC.createBiquadFilter();
+    rainFilter.type='bandpass';
+    rainFilter.frequency.value=1200;
+    rainFilter.Q.value=0.3;
+
+    noiseGain=AC.createGain();
+    noiseGain.gain.value=0.0; // starts silent, increases with rain
+
+    rainNode.connect(rainFilter);
+    rainFilter.connect(noiseGain);
+    noiseGain.connect(masterGain);
+    rainNode.start();
+
+    // ── TENSION PULSE — subtle heartbeat-like thud ──
+    tensionOsc=AC.createOscillator();
+    tensionOsc.type='sine';
+    tensionOsc.frequency.value=80;
+    tensionGain=AC.createGain();
+    tensionGain.gain.value=0;
+    tensionOsc.connect(tensionGain);
+    tensionGain.connect(masterGain);
+    tensionOsc.start();
+
+    // start pulse loop
+    schedulePulse();
+
+    audioInitialized=true;
+  }catch(e){console.warn('Audio unavailable',e);}
 }
 
-function renderLoop() {
-  animFrame = requestAnimationFrame(renderLoop);
-  sceneState.t += 0.01;
+function schedulePulse(){
+  if(!AC||!tensionGain) return;
+  const interval=4000-(G.reliability/100)*2000; // faster when stressed
+  const vol=0.0+(1-G.reliability/100)*0.12;
+  const now=AC.currentTime;
+  tensionGain.gain.cancelScheduledValues(now);
+  tensionGain.gain.setValueAtTime(0,now);
+  tensionGain.gain.linearRampToValueAtTime(vol,now+0.04);
+  tensionGain.gain.exponentialRampToValueAtTime(0.0001,now+0.4);
+  setTimeout(schedulePulse, interval);
+}
+
+function updateAudioMood(){
+  if(!AC||!audioInitialized) return;
+  const r=G.reliability;
+  const stress=1-r/100;
+  const now=AC.currentTime;
+
+  // Rain increases with stress
+  if(noiseGain) noiseGain.gain.linearRampToValueAtTime(stress*0.08,now+2);
+
+  // Drone pitch creeps down slightly under stress
+  if(droneOsc) droneOsc.frequency.linearRampToValueAtTime(55-stress*8,now+4);
+
+  // Filter opens (harsher) under stress
+}
+
+function playGlitchSound(){
+  if(!AC||!audioInitialized) return;
+  const osc=AC.createOscillator();
+  const g=AC.createGain();
+  osc.type='square';
+  osc.frequency.setValueAtTime(400+Math.random()*600,AC.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(100,AC.currentTime+0.15);
+  g.gain.setValueAtTime(0.08,AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+0.15);
+  osc.connect(g);g.connect(masterGain);
+  osc.start();osc.stop(AC.currentTime+0.15);
+}
+
+function playMemoryChime(note){
+  if(!AC||!audioInitialized) return;
+  // Simple sine bell
+  const freqs=[261.6,293.7,329.6,349.2,392,440,493.9,523.3]; // C maj scale
+  const freq=freqs[note%freqs.length];
+  const osc=AC.createOscillator();
+  const g=AC.createGain();
+  osc.type='sine';
+  osc.frequency.value=freq*2; // one octave up for bell quality
+  g.gain.setValueAtTime(0.12,AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+1.8);
+  osc.connect(g);g.connect(masterGain);
+  osc.start();osc.stop(AC.currentTime+2);
+}
+
+function playRevealStrike(){
+  if(!AC||!audioInitialized) return;
+  // Deep thud + high sting
+  const low=AC.createOscillator();
+  const lG=AC.createGain();
+  low.type='sine';low.frequency.value=60;
+  lG.gain.setValueAtTime(0.3,AC.currentTime);
+  lG.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+1.2);
+  low.connect(lG);lG.connect(masterGain);
+  low.start();low.stop(AC.currentTime+1.2);
+
+  const hi=AC.createOscillator();
+  const hG=AC.createGain();
+  hi.type='sine';hi.frequency.value=880;
+  hG.gain.setValueAtTime(0.06,AC.currentTime);
+  hG.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+0.6);
+  hi.connect(hG);hG.connect(masterGain);
+  hi.start();hi.stop(AC.currentTime+0.6);
+}
+
+function toggleAudio(){
+  if(!audioInitialized) return;
+  audioEnabled=!audioEnabled;
+  const btn=document.getElementById('audio-btn');
+  if(audioEnabled){
+    masterGain.gain.linearRampToValueAtTime(0.6,AC.currentTime+0.5);
+    btn.textContent='♪ ON';
+  } else {
+    masterGain.gain.linearRampToValueAtTime(0,AC.currentTime+0.5);
+    btn.textContent='♪ OFF';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// VISUAL RENDERER — Detailed pixel-art style canvas
+// ═══════════════════════════════════════════════════════
+let canvas,ctx,sceneState={scene:'rooftop',rain:0,glitchLevel:0,t:0,thomasState:'ledge',moodShift:0};
+const rainParticles=[];
+
+// Pixel-art color palette (drawn with rect calls, no paths)
+const PAL={
+  sky0:'#070710',sky1:'#0d0d1a',sky2:'#12101e',
+  bldDark:'#0c0c14',bldMid:'#12121c',bldEdge:'#1a1a28',
+  winOff:'#1e1e2e',winLit:'#c8a060',winDim:'#4a4060',winBlue:'#405880',
+  ledge:'#1a1a24',ledgeEdge:'#2a2a3c',
+  figBody:'#0e0e16',figEdge:'#5a607a',figGlow:'rgba(120,140,200,0.12)',
+  pipe:'#181820',pipeH:'#222230',
+  star:'rgba(255,255,220,0.7)',
+  fog:'rgba(14,14,26,0.6)',
+  redLight:'rgba(200,60,60,0.15)',
+  blueLight:'rgba(60,100,200,0.1)',
+};
+
+function initCanvas(){
+  canvas=document.getElementById('visual-canvas');
+  ctx=canvas.getContext('2d');
+  canvas.width=canvas.offsetWidth;
+  canvas.height=canvas.offsetHeight;
+  for(let i=0;i<80;i++) rainParticles.push({
+    x:Math.random()*canvas.width,y:Math.random()*canvas.height,
+    vy:2+Math.random()*2.5,vx:-0.3+Math.random()*0.6,
+    alpha:0.15+Math.random()*0.3,len:6+Math.random()*12,
+  });
+  requestAnimationFrame(renderLoop);
+}
+
+function renderLoop(){
+  requestAnimationFrame(renderLoop);
+  sceneState.t+=0.008;
   drawScene();
 }
 
-function drawScene() {
-  const w=canvas.width, h=canvas.height;
-  ctx.clearRect(0,0,w,h);
+function px(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),w,h);}
 
-  // Sky gradient based on scene
-  const gt=ctx.createLinearGradient(0,0,0,h);
-  if(sceneState.scene==='rooftop'){
-    gt.addColorStop(0,'#070710');
-    gt.addColorStop(1,'#0f0f18');
-  } else if(sceneState.scene==='memory'){
-    gt.addColorStop(0,'#0a0608');
-    gt.addColorStop(1,'#12080e');
+function drawScene(){
+  const W=canvas.width,H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  // Sky
+  const skyG=ctx.createLinearGradient(0,0,0,H*0.65);
+  if(sceneState.scene==='fractured'){
+    skyG.addColorStop(0,'#060408');skyG.addColorStop(1,'#0e080e');
+  } else if(sceneState.moodShift>0.5){
+    skyG.addColorStop(0,'#060609');skyG.addColorStop(1,'#0c0c12');
   } else {
-    gt.addColorStop(0,'#040408');
-    gt.addColorStop(1,'#080810');
+    skyG.addColorStop(0,PAL.sky0);skyG.addColorStop(1,PAL.sky1);
   }
-  ctx.fillStyle=gt;
-  ctx.fillRect(0,0,w,h);
+  ctx.fillStyle=skyG;
+  ctx.fillRect(0,0,W,H);
 
-  // City lights horizon
-  drawCity(w,h);
+  // Stars (far background, subtle)
+  drawStars(W,H);
 
-  // Figure on edge
-  drawFigure(w,h);
-
-  // Rain particles
-  if(sceneState.rain>0){
-    ctx.save();
-    for(const p of particles){
-      p.y+=p.vy*sceneState.rain*1.5;
-      p.x+=p.vx*sceneState.rain;
-      if(p.y>h){p.y=0;p.x=Math.random()*w;}
-      ctx.strokeStyle=`rgba(140,160,200,${p.alpha*0.5*sceneState.rain})`;
-      ctx.lineWidth=0.5;
-      ctx.beginPath();
-      ctx.moveTo(p.x,p.y);
-      ctx.lineTo(p.x+p.vx*p.len*0.3,p.y+p.len);
-      ctx.stroke();
-    }
-    ctx.restore();
+  // Distant fog layer
+  if(sceneState.rain>0.2){
+    ctx.fillStyle=`rgba(14,14,26,${sceneState.rain*0.3})`;
+    ctx.fillRect(0,H*0.3,W,H*0.5);
   }
 
-  // Fog / corruption
-  if(sceneState.glitchLevel>0){
-    drawGlitch(w,h);
-  }
+  // Background buildings (far, darker)
+  drawBuildings(W,H,true);
+
+  // Foreground buildings
+  drawBuildings(W,H,false);
+
+  // Rooftop ledge
+  drawLedge(W,H);
+
+  // Rooftop details
+  drawRooftopDetails(W,H);
+
+  // Thomas figure
+  drawThomas(W,H);
+
+  // Rain
+  if(sceneState.rain>0) drawRain(W,H);
+
+  // Glitch corruption
+  if(sceneState.glitchLevel>0.05) drawGlitch(W,H);
+
+  // Atmospheric light bloom on city
+  drawBloom(W,H);
+
+  // Bottom fade to dialogue
+  const fade=ctx.createLinearGradient(0,H*0.5,0,H);
+  fade.addColorStop(0,'transparent');
+  fade.addColorStop(1,'#0a0a0b');
+  ctx.fillStyle=fade;
+  ctx.fillRect(0,0,W,H);
 
   // Vignette
-  const vg=ctx.createRadialGradient(w/2,h/2,h*0.3,w/2,h/2,h*0.9);
-  vg.addColorStop(0,'transparent');
-  vg.addColorStop(1,'rgba(0,0,0,0.7)');
-  ctx.fillStyle=vg;
-  ctx.fillRect(0,0,w,h);
+  const vig=ctx.createRadialGradient(W/2,H*0.4,H*0.15,W/2,H*0.4,H*0.85);
+  vig.addColorStop(0,'transparent');vig.addColorStop(1,'rgba(0,0,0,0.55)');
+  ctx.fillStyle=vig;ctx.fillRect(0,0,W,H);
 }
 
-function drawCity(w,h) {
-  ctx.save();
-  const buildings=[
-    {x:0,w:40,h:120},{x:45,w:30,h:90},{x:80,w:50,h:150},
-    {x:135,w:35,h:80},{x:175,w:60,h:180},{x:240,w:45,h:130},
-    {x:290,w:80,h:200},{x:375,w:40,h:110},{x:420,w:55,h:160},
-    {x:480,w:70,h:190},{x:555,w:35,h:100},{x:595,w:50,h:140},
-    {x:650,w:40,h:120},{x:695,w:35,h:95},{x:735,w:60,h:170},
-    {x:800,w:45,h:130},
+function drawStars(W,H){
+  // Fixed star field — seeded positions
+  const stars=[[0.05,0.08],[0.12,0.14],[0.19,0.04],[0.28,0.11],[0.35,0.06],[0.41,0.15],
+    [0.48,0.03],[0.55,0.09],[0.62,0.13],[0.7,0.05],[0.76,0.10],[0.83,0.07],[0.9,0.12],[0.96,0.04]];
+  const t=sceneState.t;
+  for(const [sx,sy] of stars){
+    const blink=0.3+0.4*Math.sin(t*0.5+sx*20);
+    if(sceneState.rain>0.5) continue; // stars hidden by clouds/rain
+    ctx.fillStyle=`rgba(220,220,200,${blink*0.5})`;
+    ctx.fillRect(Math.round(sx*W),Math.round(sy*H),1,1);
+  }
+}
+
+function drawBuildings(W,H,far){
+  const baseY=far?H*0.62:H*0.68;
+  const bldgs=far?[
+    {x:0,w:55,h:80},{x:60,w:40,h:60},{x:105,w:70,h:100},
+    {x:180,w:45,h:70},{x:230,w:90,h:120},{x:325,w:50,h:80},
+    {x:380,w:65,h:105},{x:450,w:55,h:75},{x:510,w:80,h:110},
+    {x:595,w:45,h:65},{x:645,w:70,h:95},{x:720,w:50,h:80},{x:775,w:60,h:90},
+  ]:[
+    {x:0,w:38,h:140},{x:42,w:28,h:105},{x:74,w:48,h:165},
+    {x:126,w:32,h:90},{x:162,w:58,h:200},{x:224,w:42,h:145},
+    {x:270,w:75,h:220},{x:349,w:38,h:125},{x:391,w:52,h:175},
+    {x:447,w:66,h:210},{x:517,w:33,h:115},{x:554,w:48,h:155},
+    {x:606,w:38,h:140},{x:648,w:33,h:110},{x:685,w:56,h:190},{x:745,w:42,h:148},
+    {x:791,w:36,h:130},
   ];
-  const baseY=h*0.7;
-  for(const b of buildings){
-    ctx.fillStyle='rgba(12,12,20,0.95)';
-    ctx.fillRect(b.x,baseY-b.h,b.w,b.h+100);
-    // windows
-    for(let wy=baseY-b.h+10;wy<baseY-10;wy+=14){
-      for(let wx=b.x+6;wx<b.x+b.w-6;wx+=10){
-        if(Math.random()<0.001||(sceneState.t>0.01&&Math.sin(sceneState.t*0.3+wx*wy)>0.97)){
-          ctx.fillStyle=`rgba(200,180,120,${0.05+Math.sin(sceneState.t+wx)*0.05})`;
-        } else {
-          ctx.fillStyle=`rgba(60,60,90,${0.15+Math.sin(sceneState.t*0.5+wx*0.1)*0.05})`;
-        }
-        ctx.fillRect(wx,wy,4,6);
+  const alpha=far?0.6:1;
+  const t=sceneState.t;
+  for(const b of bldgs){
+    const darkC=far?`rgba(8,8,14,${alpha})`:`rgba(10,10,18,${alpha})`;
+    px(b.x,baseY-b.h,b.w,b.h+H,darkC);
+    // building edge highlight (1px)
+    px(b.x,baseY-b.h,1,b.h,far?'rgba(24,24,40,0.4)':'rgba(28,28,48,0.7)');
+    px(b.x+b.w-1,baseY-b.h,1,b.h,far?'rgba(24,24,40,0.3)':'rgba(22,22,38,0.5)');
+
+    // Windows — pixel art style, 4x5 blocks
+    const winW=4,winH=5,gapX=9,gapY=13;
+    const startX=b.x+5,startY=baseY-b.h+8;
+    for(let wy=startY;wy<baseY-8;wy+=gapY){
+      for(let wx=startX;wx<b.x+b.w-5;wx+=gapX){
+        const seed=wx*1000+wy*13+b.x;
+        const flicker=Math.sin(t*0.3+seed*0.001);
+        const state=((seed*7)%10);
+        let wc;
+        if(state<3) wc=`rgba(200,160,80,${0.06+flicker*0.03})`; // warm lit
+        else if(state<5) wc=`rgba(60,80,140,${0.12+flicker*0.04})`; // cold lit
+        else if(state<7) wc=`rgba(30,30,48,0.5)`; // dim
+        else wc=`rgba(14,14,24,0.8)`; // off
+        // glitch: random windows flash red at low reliability
+        if(sceneState.glitchLevel>0.3&&Math.sin(t*5+seed)>0.97)
+          wc=`rgba(180,60,60,${0.15*sceneState.glitchLevel})`;
+        px(wx,wy,winW,winH,wc);
       }
     }
   }
-  ctx.restore();
 }
 
-function drawFigure(w,h) {
+function drawLedge(W,H){
+  const lY=H*0.71;
+  // Main ledge slab
+  px(0,lY,W,6,PAL.ledge);
+  px(0,lY,W,1,'rgba(40,40,60,0.9)'); // top edge highlight
+  px(0,lY+5,W,2,'rgba(6,6,10,0.8)'); // shadow
+
+  // Ledge texture — pixel cracks & panels
+  for(let x=0;x<W;x+=48){
+    px(x,lY+1,1,4,'rgba(20,20,32,0.6)');
+  }
+  // Parapet / low wall
+  px(0,lY-8,W,8,PAL.bldMid);
+  px(0,lY-8,W,1,'rgba(36,36,52,0.8)'); // top line
+  // Parapet crenellations
+  for(let x=20;x<W;x+=60){
+    px(x,lY-14,20,6,'rgba(20,20,32,0.9)');
+    px(x,lY-14,20,1,'rgba(40,40,58,0.9)');
+  }
+  // Floor puddles (from rain)
+  if(sceneState.rain>0.3){
+    const pa=sceneState.rain*0.18;
+    ctx.fillStyle=`rgba(40,50,80,${pa})`;
+    ctx.fillRect(60,lY+3,80,3);
+    ctx.fillRect(250,lY+3,50,2);
+    ctx.fillRect(420,lY+3,90,3);
+  }
+}
+
+function drawRooftopDetails(W,H){
+  const lY=H*0.71;
+
+  // Water tower (right side)
+  const tx=W*0.85,ty=lY-55;
+  px(tx+14,ty+30,4,20,PAL.pipe); // left leg
+  px(tx+28,ty+30,4,20,PAL.pipe); // right leg
+  // barrel
+  for(let i=0;i<7;i++) px(tx+8,ty+i*5,30,4,i%2===0?PAL.pipe:PAL.pipeH);
+  px(tx+8,ty,30,3,'rgba(32,32,44,0.9)'); // lid
+  // barrel rings
+  px(tx+8,ty+8,30,1,'rgba(40,44,58,0.8)');
+  px(tx+8,ty+18,30,1,'rgba(40,44,58,0.8)');
+
+  // HVAC box (left side)
+  px(W*0.08,lY-24,36,18,PAL.bldEdge);
+  px(W*0.08,lY-24,36,2,'rgba(36,36,52,0.9)');
+  // vents
+  for(let i=0;i<4;i++) px(W*0.08+4+i*8,lY-20,2,10,'rgba(12,12,20,0.8)');
+
+  // Pipe running across rooftop
+  px(0,lY-4,W*0.55,2,PAL.pipe);
+  px(W*0.55,lY-12,2,12,PAL.pipe); // vertical bend
+
+  // Antenna (mid-left)
+  const ax=W*0.22,ay=lY-8;
+  px(ax,ay-40,1,40,'rgba(48,52,68,0.9)');
+  px(ax-8,ay-40,16,1,'rgba(48,52,68,0.7)'); // crossbar
+  px(ax-4,ay-36,8,1,'rgba(48,52,68,0.5)');
+  // blink light at top
+  const blink=Math.sin(sceneState.t*1.2)>0.6;
+  if(blink) px(ax-1,ay-42,3,3,'rgba(200,60,60,0.9)');
+
+  // Chain-link fence shadow (far edge)
+  for(let x=0;x<W*0.3;x+=4){
+    const fy=lY-14+Math.sin(x*0.4)*1;
+    px(x,fy,2,12,'rgba(30,34,48,0.25)');
+  }
+}
+
+function drawThomas(W,H){
+  const lY=H*0.71;
+  const sway=Math.sin(sceneState.t*0.35)*2*(1+sceneState.glitchLevel*2);
+  const tx=Math.round(W*0.63+sway),ty=lY-8;
+
+  // Glow aura
+  const grd=ctx.createRadialGradient(tx,ty-30,0,tx,ty-30,45);
+  grd.addColorStop(0,'rgba(100,120,180,0.06)');
+  grd.addColorStop(1,'transparent');
+  ctx.fillStyle=grd;ctx.fillRect(tx-50,ty-80,100,100);
+
+  // Shadow on ledge
+  px(tx-10,ty,22,3,'rgba(0,0,0,0.45)');
+
+  // Legs (pixel art silhouette)
+  px(tx-6,ty-2,5,18,PAL.figBody); // left leg
+  px(tx+2,ty-2,5,18,PAL.figBody); // right leg
+  px(tx-6,ty+14,5,2,PAL.figEdge); // shoe left
+  px(tx+2,ty+14,5,2,PAL.figEdge); // shoe right
+
+  // Torso — coat
+  px(tx-9,ty-36,18,34,PAL.figBody);
+  // coat edge detail
+  px(tx-9,ty-36,1,34,'rgba(70,78,110,0.5)');
+  px(tx+8,ty-36,1,34,'rgba(50,58,90,0.4)');
+  // coat lapel
+  px(tx-4,ty-36,8,6,'rgba(20,20,34,0.9)');
+
+  // Head
+  px(tx-6,ty-52,13,14,PAL.figBody);
+  px(tx-6,ty-52,13,1,'rgba(70,78,100,0.6)'); // top highlight
+
+  // Hair (pixel detail)
+  px(tx-5,ty-52,11,3,'rgba(30,30,48,0.9)');
+
+  // Face — just two white pixel eyes
+  if(sceneState.scene!=='fractured'){
+    px(tx-3,ty-46,2,2,'rgba(200,200,220,0.4)');
+    px(tx+2,ty-46,2,2,'rgba(200,200,220,0.4)');
+  }
+
+  // Arms — slightly out, coat silhouette
+  px(tx-13,ty-34,4,22,PAL.figBody); // left arm
+  px(tx+10,ty-34,4,22,PAL.figBody); // right arm
+  px(tx-13,ty-14,4,2,PAL.figEdge); // left hand
+  px(tx+10,ty-14,4,2,PAL.figEdge); // right hand
+
+  // Scarf / jacket collar detail
+  px(tx-4,ty-38,9,4,'rgba(80,88,120,0.3)');
+
+  // Rain drip on Thomas if raining
+  if(sceneState.rain>0.4&&Math.sin(sceneState.t*3)>0.8){
+    px(tx+2,ty-52,1,Math.floor(sceneState.rain*20),`rgba(100,130,180,${sceneState.rain*0.4})`);
+  }
+}
+
+function drawRain(W,H){
+  const t=sceneState.t;
   ctx.save();
-  const fx=w*0.68, fy=h*0.72;
-  const sway=Math.sin(sceneState.t*0.4)*1.5;
-  ctx.translate(fx,fy);
-
-  // shadow/glow
-  const sg=ctx.createRadialGradient(0,0,0,0,0,30);
-  sg.addColorStop(0,'rgba(120,140,200,0.08)');
-  sg.addColorStop(1,'transparent');
-  ctx.fillStyle=sg;
-  ctx.beginPath();ctx.arc(0,0,30,0,Math.PI*2);ctx.fill();
-
-  // body
-  ctx.fillStyle='rgba(15,15,22,0.95)';
-  ctx.strokeStyle='rgba(80,90,130,0.6)';
-  ctx.lineWidth=0.5;
-
-  // legs
-  ctx.beginPath();
-  ctx.moveTo(-5+sway,0);ctx.lineTo(-8+sway,30);
-  ctx.moveTo(5+sway,0);ctx.lineTo(8+sway,30);
-  ctx.stroke();
-
-  // torso
-  ctx.beginPath();
-  ctx.roundRect(-9+sway,-35,18,35,2);
-  ctx.fill();ctx.stroke();
-
-  // head
-  ctx.beginPath();
-  ctx.arc(sway,-42,9,0,Math.PI*2);
-  ctx.fill();ctx.stroke();
-
-  // edge position shadow
-  ctx.fillStyle='rgba(0,0,0,0.5)';
-  ctx.fillRect(-15+sway,0,30,4);
-
+  for(const p of rainParticles){
+    p.y+=p.vy*sceneState.rain*2;
+    p.x+=p.vx*sceneState.rain;
+    if(p.y>H){p.y=-10;p.x=Math.random()*W;}
+    if(p.x>W) p.x=0; if(p.x<0) p.x=W;
+    ctx.strokeStyle=`rgba(120,150,200,${p.alpha*sceneState.rain})`;
+    ctx.lineWidth=0.5;
+    ctx.beginPath();
+    ctx.moveTo(p.x,p.y);
+    ctx.lineTo(p.x+p.vx*p.len*0.2,p.y+p.len*sceneState.rain);
+    ctx.stroke();
+  }
   ctx.restore();
-}
-
-function drawGlitch(w,h) {
-  const lvl=sceneState.glitchLevel;
-  const numLines=Math.floor(lvl*5);
-  for(let i=0;i<numLines;i++){
-    const y=Math.random()*h;
-    const stripH=2+Math.random()*8;
-    const offset=(-20+Math.random()*40)*lvl;
-    ctx.save();
-    ctx.drawImage(canvas,0,y,w,stripH,offset,y,w,stripH);
-    ctx.restore();
-
-    if(Math.random()<0.3){
-      ctx.fillStyle=`rgba(200,120,120,${Math.random()*0.05*lvl})`;
-      ctx.fillRect(0,y,w,stripH);
+  // Splashes on ledge
+  const lY=H*0.71+4;
+  if(sceneState.rain>0.5){
+    for(let i=0;i<3;i++){
+      const sx=Math.sin(t*5+i*2)*W*0.3+W*0.3;
+      ctx.strokeStyle=`rgba(100,130,180,${sceneState.rain*0.2})`;
+      ctx.lineWidth=0.5;
+      ctx.beginPath();
+      ctx.arc(sx,lY,2+Math.sin(t*4+i)*1,0,Math.PI);
+      ctx.stroke();
     }
   }
-  if(Math.random()<lvl*0.1){
-    ctx.fillStyle=`rgba(120,140,200,${Math.random()*0.03})`;
-    ctx.fillRect(0,Math.random()*h,w,Math.random()*20);
+}
+
+function drawBloom(W,H){
+  // Ambient city glow near horizon
+  const bloomY=H*0.68;
+  const bloom=ctx.createLinearGradient(0,bloomY-20,0,bloomY+30);
+  bloom.addColorStop(0,'transparent');
+  bloom.addColorStop(0.5,`rgba(80,60,30,${0.06+sceneState.rain*0.04})`);
+  bloom.addColorStop(1,'transparent');
+  ctx.fillStyle=bloom;
+  ctx.fillRect(0,bloomY-20,W,50);
+
+  // Emergency light flicker (far building, low reliability)
+  if(sceneState.glitchLevel>0.2){
+    const fl=Math.sin(sceneState.t*8)>0.7;
+    if(fl){
+      const rg=ctx.createRadialGradient(W*0.3,H*0.5,0,W*0.3,H*0.5,60);
+      rg.addColorStop(0,`rgba(200,60,60,${sceneState.glitchLevel*0.12})`);
+      rg.addColorStop(1,'transparent');
+      ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);
+    }
   }
 }
 
-// ═══════════════════════════════════════════
+function drawGlitch(W,H){
+  const lvl=sceneState.glitchLevel;
+  const n=Math.floor(lvl*6);
+  for(let i=0;i<n;i++){
+    const y=Math.random()*H;
+    const sh=1+Math.random()*6;
+    const off=(-30+Math.random()*60)*lvl;
+    ctx.save();
+    try{ctx.drawImage(canvas,0,y,W,sh,off,y,W,sh);}catch(e){}
+    ctx.restore();
+    if(Math.random()<0.4){
+      ctx.fillStyle=`rgba(180,80,80,${Math.random()*0.04*lvl})`;
+      ctx.fillRect(0,y,W,sh);
+    }
+  }
+  // Scan artifact
+  if(Math.random()<lvl*0.08){
+    ctx.fillStyle=`rgba(100,120,200,${Math.random()*0.025})`;
+    ctx.fillRect(0,Math.random()*H,W,Math.random()*16+2);
+  }
+}
+
+// Title screen procedural art
+function initTitleCanvas(){
+  const tc=document.getElementById('title-canvas');
+  if(!tc) return;
+  tc.width=window.innerWidth;tc.height=window.innerHeight;
+  const tc2=tc.getContext('2d');
+  let tt=0;
+  function titleLoop(){
+    if(!document.getElementById('title-screen')||document.getElementById('title-screen').style.display==='none') return;
+    requestAnimationFrame(titleLoop);
+    tt+=0.005;
+    tc2.clearRect(0,0,tc.width,tc.height);
+    // Subtle grid
+    tc2.strokeStyle='rgba(40,40,60,0.3)';tc2.lineWidth=0.5;
+    const gs=60;
+    for(let x=0;x<tc.width;x+=gs){tc2.beginPath();tc2.moveTo(x,0);tc2.lineTo(x,tc.height);tc2.stroke();}
+    for(let y=0;y<tc.height;y+=gs){tc2.beginPath();tc2.moveTo(0,y);tc2.lineTo(tc.width,y);tc2.stroke();}
+    // Slow moving highlight sweep
+    const sweep=(Math.sin(tt*0.3)*0.5+0.5)*tc.width;
+    const sg=tc2.createLinearGradient(sweep-200,0,sweep+200,0);
+    sg.addColorStop(0,'transparent');sg.addColorStop(0.5,'rgba(200,168,122,0.025)');sg.addColorStop(1,'transparent');
+    tc2.fillStyle=sg;tc2.fillRect(0,0,tc.width,tc.height);
+    // City silhouette at bottom
+    const by=tc.height*0.75;
+    const bldg=[[0,60,120],[65,40,90],[110,55,155],[170,35,80],[210,65,195],[280,48,140],[333,85,230],[423,40,115],[468,58,170],[531,72,200],[608,38,100],[651,52,148],[708,40,125],[753,38,100],[796,62,182]];
+    for(const [bx,bw,bh] of bldg){
+      tc2.fillStyle='rgba(8,8,14,0.8)';
+      tc2.fillRect(bx,by-bh,bw,bh+tc.height);
+    }
+    // Scan line
+    const sl=(tt*100)%tc.height;
+    tc2.fillStyle='rgba(120,140,200,0.03)';tc2.fillRect(0,sl,tc.width,2);
+  }
+  titleLoop();
+}
+
+// ═══════════════════════════════════════════════════════
 // GAME ENGINE
-// ═══════════════════════════════════════════
-let messageQueue=[];
+// ═══════════════════════════════════════════════════════
 let isProcessing=false;
-let currentNode=null;
 
 function updateReliabilityUI(){
   const r=G.reliability;
-  const pct=r+'%';
-  document.getElementById('reliability-fill').style.width=pct;
+  document.getElementById('reliability-fill').style.width=r+'%';
   const fill=document.getElementById('reliability-fill');
   if(r>60) fill.style.background='var(--accent)';
   else if(r>30) fill.style.background='rgba(200,168,122,0.6)';
   else fill.style.background='var(--danger)';
-
-  const bars=[14,28,50,28];
   for(let i=0;i<4;i++){
     const bar=document.getElementById('sb'+i);
-    const threshold=(i+1)*25;
-    bar.style.opacity=r>=threshold?'1':'0.2';
+    bar.style.opacity=r>=(i+1)*25?'1':'0.18';
     bar.style.background=r>60?'var(--accent)':r>30?'rgba(200,168,122,0.6)':'var(--danger)';
   }
-
-  sceneState.glitchLevel=(100-r)/120;
-  sceneState.rain=Math.min(1,(100-r)/60);
+  sceneState.glitchLevel=(100-r)/110;
+  sceneState.rain=Math.min(1,(100-r)/55);
+  sceneState.moodShift=(100-r)/100;
+  updateAudioMood();
 }
 
 function updateTime(){
   G.time+=3;
-  const h=Math.floor(G.time/60)%24;
-  const m=G.time%60;
-  document.getElementById('time-display').textContent=
-    h.toString().padStart(2,'0')+':'+m.toString().padStart(2,'0');
+  const h=Math.floor(G.time/60)%24,m=G.time%60;
+  document.getElementById('time-display').textContent=h.toString().padStart(2,'0')+':'+m.toString().padStart(2,'0');
 }
 
 function addMessage(speaker,text,cls=''){
@@ -632,28 +797,16 @@ function addMessage(speaker,text,cls=''){
     const dlg=document.getElementById('dialogue');
     const msg=document.createElement('div');
     msg.className='msg'+(cls?' '+cls:'');
-    const spk=document.createElement('div');
-    spk.className='msg-speaker';
-    spk.textContent=speaker;
-    const txt=document.createElement('div');
-    txt.className='msg-text';
-
-    msg.appendChild(spk);
-    msg.appendChild(txt);
-    dlg.appendChild(msg);
-    dlg.scrollTop=dlg.scrollHeight;
-
-    // Typewriter effect
+    const spk=document.createElement('div');spk.className='msg-speaker';spk.textContent=speaker;
+    const txt=document.createElement('div');txt.className='msg-text';
+    msg.appendChild(spk);msg.appendChild(txt);
+    dlg.appendChild(msg);dlg.scrollTop=dlg.scrollHeight;
     let i=0;
-    const speed=speaker==='[SYSTEM]'?20:18;
+    const speed=cls.includes('system')||cls.includes('memory')||cls.includes('crack')?22:17;
     const timer=setInterval(()=>{
-      txt.textContent=text.slice(0,i);
-      i++;
+      txt.textContent=text.slice(0,i);i++;
       dlg.scrollTop=dlg.scrollHeight;
-      if(i>text.length){
-        clearInterval(timer);
-        setTimeout(resolve,200);
-      }
+      if(i>text.length){clearInterval(timer);setTimeout(resolve,160);}
     },speed);
   });
 }
@@ -661,9 +814,7 @@ function addMessage(speaker,text,cls=''){
 function showChoices(choices){
   const list=document.getElementById('choice-list');
   const label=document.getElementById('choices-label');
-  list.innerHTML='';
-  label.style.opacity='1';
-
+  list.innerHTML='';label.style.opacity='1';
   const prefixes=['A','B','C','D'];
   choices.forEach((c,i)=>{
     const btn=document.createElement('button');
@@ -680,93 +831,72 @@ function clearChoices(){
 }
 
 async function makeChoice(choice){
-  clearChoices();
-  G.choiceCount++;
-  updateTime();
-
+  clearChoices();G.choiceCount++;updateTime();
   if(choice.reliability!==undefined){
     G.reliability=Math.max(0,Math.min(100,G.reliability+choice.reliability));
     updateReliabilityUI();
-    if(choice.reliability<0) triggerGlitch(Math.abs(choice.reliability)/30);
+    if(choice.reliability<0){triggerGlitch(Math.abs(choice.reliability)/28);playGlitchSound();}
   }
-
   if(choice.flag) G.flags[choice.flag]=true;
-
   await addMessage('DR. CHEN',choice.text,'player');
-  await delay(300);
-
+  await delay(280);
   if(choice.next) await runNode(choice.next);
 }
 
-function delay(ms){return new Promise(r=>setTimeout(r,ms))}
+function delay(ms){return new Promise(r=>setTimeout(r,ms));}
 
 function triggerGlitch(intensity){
-  const el=document.getElementById('glitch-overlay');
-  el.classList.add('glitch-active');
-  setTimeout(()=>el.classList.remove('glitch-active'),400);
+  document.getElementById('glitch-overlay').classList.add('glitch-active');
+  setTimeout(()=>document.getElementById('glitch-overlay').classList.remove('glitch-active'),400);
+  document.getElementById('memory-flash').classList.add('active');
+  setTimeout(()=>document.getElementById('memory-flash').classList.remove('active'),300);
+}
 
-  const flash=document.getElementById('memory-flash');
-  flash.classList.add('active');
-  setTimeout(()=>flash.classList.remove('active'),300);
+function triggerRedFlash(){
+  document.getElementById('red-flash').classList.add('active');
+  setTimeout(()=>document.getElementById('red-flash').classList.remove('active'),250);
 }
 
 function setAtmosphere(location,text,scene='rooftop'){
   document.getElementById('location-tag').textContent='Location: '+location;
-  document.getElementById('atmosphere-text').textContent=text;
+  const atm=document.getElementById('atmosphere-text');
+  atm.style.opacity='0';
+  setTimeout(()=>{atm.textContent=text;atm.style.opacity='1';},300);
   sceneState.scene=scene;
 }
 
-function setChapter(name){
-  document.getElementById('chapter-display').textContent=name;
-}
+function setChapter(name){document.getElementById('chapter-display').textContent=name;}
 
-// ═══════════════════════════════════════════
-// STORY NODES
-// ═══════════════════════════════════════════
 async function runNode(id){
   if(isProcessing) return;
   isProcessing=true;
-  currentNode=id;
-
   const node=STORY[id];
   if(!node){isProcessing=false;return;}
-
   if(node.setup) await node.setup();
-
-  for(const msg of (node.messages||[])){
-    const cls=msg.cls||'';
-    await addMessage(msg.speaker,msg.text,cls);
+  for(const msg of(node.messages||[])){
+    await addMessage(msg.speaker,msg.text,msg.cls||'');
     if(msg.pause) await delay(msg.pause);
   }
-
   if(node.choices){
     let choices=node.choices;
     if(typeof choices==='function') choices=choices();
-    if(choices.length>0){
-      isProcessing=false;
-      showChoices(choices);
-      return;
-    }
+    if(choices.length>0){isProcessing=false;showChoices(choices);return;}
   }
-
   if(node.auto){
     isProcessing=false;
-    await delay(node.autoDelay||800);
+    await delay(node.autoDelay||700);
     await runNode(node.auto);
     return;
   }
-
   isProcessing=false;
 }
 
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 // THE STORY
-// ═══════════════════════════════════════════
-const STORY = {
+// ═══════════════════════════════════════════════════════
+const STORY={
 
-  // ─────────────────────────────────────────
-  // CHAPTER 1: FIRST CONTACT
-  // ─────────────────────────────────────────
+  // ─── CHAPTER 1: FIRST CONTACT ───────────────────────
   intro:{
     setup:async()=>{
       setChapter('01 — First Contact');
@@ -777,11 +907,10 @@ const STORY = {
       {speaker:'[SYSTEM]',text:'Case file 7-19. Subject: KAEL, Thomas. Age: 34. Former systems analyst, Vantex Corp.',cls:'system-msg',pause:500},
       {speaker:'[SYSTEM]',text:'Subject accessed roof via maintenance stairwell at 21:47. No weapons detected. No prior incidents on record.',cls:'system-msg',pause:600},
       {speaker:'[SYSTEM]',text:'Your mission: Talk him down. Establish rapport. Do not escalate.',cls:'system-msg',pause:400},
-      {speaker:'RADIO',text:'Chen. You\'re up. The uniform said he\'s been out there twenty minutes. Hasn\'t moved. Just... standing.',pause:500},
+      {speaker:'RADIO',text:'Chen. You\'re up. The uniform said he\'s been out there twenty minutes. Hasn\'t moved. Just... standing.'},
       {speaker:'DR. CHEN',text:'I\'m on the roof now. I can see him.',cls:'player'},
     ],
-    auto:'thomas_first',
-    autoDelay:1200,
+    auto:'thomas_first',autoDelay:1100,
   },
 
   thomas_first:{
@@ -791,78 +920,64 @@ const STORY = {
       {speaker:'THOMAS',text:'It means this is a script. You\'re following a script.',cls:'npc',pause:600},
     ],
     choices:[
-      {text:"I'm not following a script. I came because you're still here, and that matters to me.", reliability:0, flag:'empathy_open', next:'thomas_responds_empathy'},
-      {text:"What would you rather I do — leave?", reliability:-5, flag:'challenge_open', next:'thomas_responds_challenge'},
-      {text:"My name is Mara. What's yours?", reliability:5, flag:'name_open', next:'thomas_responds_name'},
-      {text:"...(Say nothing. Let him keep talking.)", reliability:3, flag:'silence_open', next:'thomas_responds_silence'},
+      {text:"I'm not following a script. I came because you're still here, and that matters to me.",reliability:0,flag:'empathy_open',next:'thomas_responds_empathy'},
+      {text:"What would you rather I do — leave?",reliability:-5,flag:'challenge_open',next:'thomas_responds_challenge'},
+      {text:"My name is Mara. What's yours?",reliability:5,flag:'name_open',next:'thomas_responds_name'},
+      {text:"...(Say nothing. Let him keep talking.)",reliability:3,flag:'silence_open',next:'thomas_responds_silence'},
     ]
   },
 
   thomas_responds_empathy:{
     messages:[
-      {speaker:'THOMAS',text:'That\'s...',cls:'npc',pause:400},
-      {speaker:'THOMAS',text:'That\'s a good line. Someone trained you well.',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'But the problem with trained empathy is that eventually the training shows.',cls:'npc',pause:400},
+      {speaker:'THOMAS',text:'That\'s... that\'s a good line. Someone trained you well.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'But the problem with trained empathy is that eventually the training shows.',cls:'npc'},
     ],
-    auto:'thomas_file_moment',
-    autoDelay:600,
+    auto:'thomas_file_moment',autoDelay:600,
   },
-
   thomas_responds_challenge:{
     messages:[
       {speaker:'THOMAS',text:'...',cls:'npc',pause:700},
-      {speaker:'THOMAS',text:'Huh.',cls:'npc',pause:400},
-      {speaker:'THOMAS',text:'Most people don\'t say that. Most people say "No, no, please, we want to help you."',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'I almost respect it.',cls:'npc',pause:400},
+      {speaker:'THOMAS',text:'Huh. Most people don\'t say that. Most say "No, no, please, we want to help you."',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'I almost respect it.',cls:'npc'},
     ],
-    auto:'thomas_file_moment',
-    autoDelay:600,
+    auto:'thomas_file_moment',autoDelay:600,
   },
-
   thomas_responds_name:{
     messages:[
       {speaker:'THOMAS',text:'I know your name, Dr. Chen. Division 7 — Licensed Crisis Negotiator since 2019.',cls:'npc',pause:500},
       {speaker:'THOMAS',text:'Three commendations. One internal review — charges dropped.',cls:'npc',pause:400},
-      {speaker:'THOMAS',text:'You see, I did my research too.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'You see, I did my research too.',cls:'npc'},
     ],
-    auto:'thomas_file_moment',
-    autoDelay:600,
+    auto:'thomas_file_moment',autoDelay:600,
   },
-
   thomas_responds_silence:{
     messages:[
       {speaker:'THOMAS',text:'...',cls:'npc',pause:1000},
       {speaker:'THOMAS',text:'You\'re not going to say anything.',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'Good. The last one talked until I wanted to jump just to make it stop.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'Good. The last one talked until I wanted to jump just to make it stop.',cls:'npc'},
     ],
-    auto:'thomas_file_moment',
-    autoDelay:600,
+    auto:'thomas_file_moment',autoDelay:600,
   },
 
-  // ─────────────────────────────────────────
-  // CHAPTER 2: THE CONTRADICTION
-  // ─────────────────────────────────────────
+  // ─── CHAPTER 2: THE CONTRADICTION ───────────────────
   thomas_file_moment:{
-    setup:async()=>{
-      setChapter('02 — The Contradiction');
-      await delay(400);
-    },
+    setup:async()=>{setChapter('02 — The Contradiction');},
     messages:[
       {speaker:'THOMAS',text:'I was a data integrity specialist. That means I found errors. Inconsistencies between what data said and what was real.',cls:'npc',pause:600},
       {speaker:'THOMAS',text:'Seven months ago, I found something in Vantex\'s personnel system.',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'My file said I\'d been placed on medical leave. Depression, suicidal ideation.',cls:'npc',pause:400},
+      {speaker:'THOMAS',text:'My file said I\'d been placed on medical leave. Depression. Suicidal ideation.',cls:'npc',pause:400},
       {speaker:'THOMAS',text:'Except I hadn\'t. I was fine. I\'d never filed anything. Never spoken to HR.',cls:'npc',pause:700},
     ],
     choices:[
-      {text:"That sounds like a clerical error. It happens — systems make mistakes.", reliability:-10, flag:'dismissed_file', next:'thomas_angry_dismiss'},
-      {text:"Someone put that record there. Who had access to your file?", reliability:5, flag:'investigated_file', next:'thomas_investigates'},
-      {text:"Did you report it? Try to get it corrected?", reliability:3, flag:'asked_process', next:'thomas_process'},
-      {text:"What did the file say about you — exactly?", reliability:2, flag:'asked_details', next:'thomas_details'},
+      {text:"That sounds like a clerical error. It happens — systems make mistakes.",reliability:-10,flag:'dismissed_file',next:'thomas_angry_dismiss'},
+      {text:"Someone put that record there. Who had access to your file?",reliability:5,flag:'investigated_file',next:'thomas_investigates'},
+      {text:"Did you report it? Try to get it corrected?",reliability:3,flag:'asked_process',next:'thomas_process'},
+      {text:"What did the file say about you — exactly?",reliability:2,flag:'asked_details',next:'thomas_details'},
     ]
   },
 
   thomas_angry_dismiss:{
-    setup:async()=>{triggerGlitch(0.4)},
+    setup:async()=>{triggerGlitch(0.4);},
     messages:[
       {speaker:'THOMAS',text:'Clerical error.',cls:'npc',pause:300},
       {speaker:'THOMAS',text:'I thought so too. So I corrected it. Submitted the correction, attached evidence, everything proper.',cls:'npc',pause:500},
@@ -870,32 +985,25 @@ const STORY = {
       {speaker:'THOMAS',text:'New signature at the bottom: Dr. Mara Chen. Division 7.',cls:'npc',pause:1000},
       {speaker:'DR. CHEN',text:'...What?',cls:'player'},
     ],
-    auto:'thomas_reveals_chen',
-    autoDelay:400,
+    auto:'thomas_reveals_chen',autoDelay:400,
   },
-
   thomas_investigates:{
     messages:[
       {speaker:'THOMAS',text:'I asked myself the same question. Vantex HR said it was a system migration artifact. Meaningless.',cls:'npc',pause:500},
       {speaker:'THOMAS',text:'But then I found the signature. At the bottom of my psychological assessment.',cls:'npc',pause:400},
       {speaker:'THOMAS',text:'Dr. Mara Chen. Division 7.',cls:'npc',pause:800},
     ],
-    auto:'thomas_reveals_chen',
-    autoDelay:400,
+    auto:'thomas_reveals_chen',autoDelay:400,
   },
-
   thomas_process:{
     messages:[
-      {speaker:'THOMAS',text:'Of course. I followed every proper channel.',cls:'npc',pause:400},
-      {speaker:'THOMAS',text:'HR. Legal. My direct manager. His manager.',cls:'npc',pause:300},
+      {speaker:'THOMAS',text:'Of course. I followed every proper channel. HR. Legal. My direct manager. His manager.',cls:'npc',pause:500},
       {speaker:'THOMAS',text:'Everyone referred me back to the system. "The system shows what the system shows."',cls:'npc',pause:500},
       {speaker:'THOMAS',text:'Until I found the name on the file. The one who signed it.',cls:'npc',pause:600},
       {speaker:'THOMAS',text:'Dr. Mara Chen. Division 7.',cls:'npc',pause:800},
     ],
-    auto:'thomas_reveals_chen',
-    autoDelay:400,
+    auto:'thomas_reveals_chen',autoDelay:400,
   },
-
   thomas_details:{
     messages:[
       {speaker:'THOMAS',text:'It said I had undergone a voluntary psychiatric evaluation on March 14th.',cls:'npc',pause:400},
@@ -903,125 +1011,193 @@ const STORY = {
       {speaker:'THOMAS',text:'All of it false. All of it dated. All of it signed.',cls:'npc',pause:600},
       {speaker:'THOMAS',text:'Signed by Dr. Mara Chen. Division 7.',cls:'npc',pause:1000},
     ],
-    auto:'thomas_reveals_chen',
-    autoDelay:400,
+    auto:'thomas_reveals_chen',autoDelay:400,
   },
 
   thomas_reveals_chen:{
     setup:async()=>{
-      G.reliability-=15;
-      updateReliabilityUI();
-      triggerGlitch(0.6);
+      G.reliability-=15;updateReliabilityUI();triggerGlitch(0.6);playRevealStrike();
       await delay(600);
     },
     messages:[
       {speaker:'THOMAS',text:'So you see why I find it... interesting... that they sent you.',cls:'npc',pause:800},
     ],
     choices:[
-      {text:"I've never seen your file. That signature is a forgery or a mistake — I have no record of you.", reliability:-10, flag:'denied_signature', next:'thomas_on_denial'},
-      {text:"(Don't respond yet. Think. Could you have signed something without knowing what it was?)", reliability:0, flag:'uncertain_signature', next:'thomas_on_uncertainty'},
-      {text:"I don't know what that means. But if someone used my name — that's serious. I want to understand this.", reliability:5, flag:'open_signature', next:'thomas_on_openness'},
-      {text:"Where did you get the file? Show me.", reliability:3, flag:'asked_proof', next:'thomas_has_proof'},
+      {text:"I've never seen your file. That signature is a forgery or a mistake — I have no record of you.",reliability:-10,flag:'denied_signature',next:'thomas_on_denial'},
+      {text:"(Don't respond yet. Think. Could you have signed something without knowing what it was?)",reliability:0,flag:'uncertain_signature',next:'thomas_on_uncertainty'},
+      {text:"I don't know what that means. But if someone used my name — that's serious. I want to understand this.",reliability:5,flag:'open_signature',next:'thomas_on_openness'},
+      {text:"Where did you get the file? Show me.",reliability:3,flag:'asked_proof',next:'thomas_has_proof'},
     ]
   },
 
-  // ─────────────────────────────────────────
-  // CHAPTER 3: THE FILE
-  // ─────────────────────────────────────────
+  // ─── CHAPTER 3: THE FILE ────────────────────────────
   thomas_on_denial:{
-    setup:async()=>{
-      setChapter('03 — The File');
-      triggerGlitch(0.5);
-    },
+    setup:async()=>{setChapter('03 — The File');triggerGlitch(0.5);},
     messages:[
       {speaker:'THOMAS',text:'Of course you do. That\'s what you\'re supposed to say.',cls:'npc',pause:500},
       {speaker:'THOMAS',text:'Let me ask you something, Dr. Chen. Have you ever signed a document without reading it?',cls:'npc',pause:600},
       {speaker:'THOMAS',text:'A batch of case files at the end of a long shift? A system migration? A pre-populated form?',cls:'npc',pause:700},
     ],
-    auto:'chen_memory_crack',
-    autoDelay:400,
+    auto:'chen_memory_crack',autoDelay:400,
   },
-
   thomas_on_uncertainty:{
-    setup:async()=>{setChapter('03 — The File')},
+    setup:async()=>{setChapter('03 — The File');},
     messages:[
       {speaker:'THOMAS',text:'You\'re doing it right now. You\'re questioning yourself.',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'That\'s good. That\'s honest. Most people never get that far.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'That\'s good. That\'s honest. Most people never get that far.',cls:'npc'},
     ],
-    auto:'chen_memory_crack',
-    autoDelay:400,
+    auto:'chen_memory_crack',autoDelay:400,
   },
-
   thomas_on_openness:{
-    setup:async()=>{setChapter('03 — The File')},
+    setup:async()=>{setChapter('03 — The File');},
     messages:[
       {speaker:'THOMAS',text:'You want to understand it.',cls:'npc',pause:400},
       {speaker:'THOMAS',text:'I wanted to understand it too. I spent seven months understanding it.',cls:'npc',pause:500},
       {speaker:'THOMAS',text:'The problem is — the more I understood, the less I was sure about which parts of my life were mine.',cls:'npc',pause:700},
     ],
-    auto:'chen_memory_crack',
-    autoDelay:400,
+    auto:'chen_memory_crack',autoDelay:400,
   },
-
   thomas_has_proof:{
-    setup:async()=>{setChapter('03 — The File')},
+    setup:async()=>{setChapter('03 — The File');},
     messages:[
       {speaker:'THOMAS',text:'No. You don\'t get to see it. Every time I showed someone, it disappeared from their hands.',cls:'npc',pause:500},
       {speaker:'THOMAS',text:'Not literally. But they\'d get a phone call. Or a message. And then: "I\'m sorry, I can\'t help you with this."',cls:'npc',pause:600},
-      {speaker:'THOMAS',text:'You carry the file. You\'re the only one allowed to.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'You carry the file. You\'re the only one allowed to.',cls:'npc'},
     ],
-    auto:'chen_memory_crack',
-    autoDelay:400,
+    auto:'chen_memory_crack',autoDelay:400,
   },
 
+  // ─── THE EXTENDED DOUBT SEQUENCE ────────────────────
   chen_memory_crack:{
     setup:async()=>{
-      G.reliability-=10;
-      updateReliabilityUI();
+      G.reliability-=10;updateReliabilityUI();
       triggerGlitch(0.5);
-      setAtmosphere('Harmon Tower — Roof Access','The wind is picking up. You realize you cannot remember driving here tonight.');
-      await delay(600);
+      setAtmosphere('Harmon Tower — Roof Access','The wind picks up. Something cold moves through you that isn\'t weather.');
+      playMemoryChime(0);
+      await delay(700);
     },
     messages:[
-      {speaker:'[INTERNAL]',text:'You think about your case files. The batch you processed last month. March 14th.',cls:'system-msg',pause:600},
-      {speaker:'[INTERNAL]',text:'You were late. Exhausted. There were forty-seven documents.',cls:'system-msg',pause:400},
-      {speaker:'[INTERNAL]',text:'You signed them all.',cls:'system-msg',pause:800},
+      {speaker:'[INTERNAL]',text:'March 14th.',cls:'system-msg',pause:500},
+      {speaker:'[INTERNAL]',text:'You think about March 14th and find... nothing. A flat surface where a memory should be.',cls:'system-msg',pause:700},
     ],
-    auto:'chen_radio_call',
-    autoDelay:500,
+    auto:'chen_doubt_2',autoDelay:400,
   },
 
-  chen_radio_call:{
+  chen_doubt_2:{
+    setup:async()=>{await delay(200);},
     messages:[
-      {speaker:'RADIO',text:'Chen. Status update. How\'s the subject?',pause:400},
+      {speaker:'DR. CHEN',text:'(You try to reconstruct it. Wednesday? Thursday? You were — where were you?)',cls:'memory',pause:700},
+      {speaker:'[INTERNAL]',text:'The office. You were at the office. That month you worked late every Tuesday and Thursday.',cls:'system-msg',pause:600},
+      {speaker:'DR. CHEN',text:'(But you can\'t picture the desk. You can\'t picture the light. It\'s just an assertion.)',cls:'memory',pause:700},
+    ],
+    auto:'chen_doubt_3',autoDelay:300,
+  },
+
+  chen_doubt_3:{
+    setup:async()=>{playMemoryChime(2);await delay(300);},
+    messages:[
+      {speaker:'[INTERNAL]',text:'You remember: forty-seven case files. End-of-quarter batch processing. You stayed until eleven.',cls:'system-msg',pause:700},
+      {speaker:'DR. CHEN',text:'(You signed them. You sign hundreds of forms. It\'s procedure — review summary, confirm, move on.)',cls:'memory',pause:600},
+      {speaker:'DR. CHEN',text:'(Did you read each one? ...Did you?)',cls:'crack',pause:900},
+    ],
+    auto:'chen_doubt_4',autoDelay:500,
+  },
+
+  chen_doubt_4:{
+    setup:async()=>{
+      G.reliability-=5;updateReliabilityUI();triggerGlitch(0.3);
+      await delay(400);
+    },
+    messages:[
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'You went quiet.',cls:'npc',pause:400},
+      {speaker:'THOMAS',text:'That\'s the face people make when they start to actually think instead of respond.',cls:'npc',pause:700},
+    ],
+    auto:'chen_doubt_5',autoDelay:300,
+  },
+
+  chen_doubt_5:{
+    setup:async()=>{playMemoryChime(4);},
+    messages:[
+      {speaker:'DR. CHEN',text:'(The batch. You remember submitting it. The system confirmed receipt. Green checkmark. Done.)',cls:'memory',pause:700},
+      {speaker:'DR. CHEN',text:'(But you don\'t remember opening any of them. Not one. You remember the checkmark, not the contents.)',cls:'memory',pause:800},
+      {speaker:'[INTERNAL]',text:'This is normal. This is standard practice. You process hundreds of documents.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'This is normal.',cls:'system-msg',pause:400},
+      {speaker:'DR. CHEN',text:'(You\'ve said that to yourself before. About other things.)',cls:'crack',pause:900},
+    ],
+    auto:'chen_doubt_6',autoDelay:300,
+  },
+
+  chen_doubt_6:{
+    setup:async()=>{
+      G.reliability-=5;updateReliabilityUI();
+      setAtmosphere('Harmon Tower — Roof Access','The city below runs its circuits. Somewhere in them, a record of you exists that you didn\'t write.');
+      triggerGlitch(0.4);
+      await delay(500);
+    },
+    messages:[
+      {speaker:'THOMAS',text:'They built it carefully. Whoever did it.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'It doesn\'t look planted. It looks like routine administration. The kind of thing that happens a hundred times a day and no one ever checks.',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'Because who would? The system is the record. The record is the truth.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'Unless you\'re the kind of person who checks.',cls:'npc',pause:600},
     ],
     choices:[
-      {text:"He's stable. Talking. I need five more minutes.", reliability:3, flag:'radio_stable', next:'chen_radio_response'},
-      {text:"He's making claims about me. About my signature on a case file.", reliability:-8, flag:'radio_disclosed', next:'chen_radio_alarm'},
-      {text:"Fine. He's testing me, I think. Normal deflection.", reliability:0, flag:'radio_deflect', next:'chen_radio_response'},
+      {text:"I need to know if my supervisor knew about this. If Division 7 was used as cover —",reliability:5,flag:'confronts_division',next:'chen_radio_call'},
+      {text:"(Let him keep talking. You need more time to think.)",reliability:3,flag:'buys_time',next:'chen_thinks_more'},
+      {text:"Stop. I can't let this compromise the negotiation. You need to come down.",reliability:-10,flag:'closes_down',next:'chen_shuts_down'},
+    ]
+  },
+
+  chen_thinks_more:{
+    setup:async()=>{playMemoryChime(5);await delay(300);},
+    messages:[
+      {speaker:'DR. CHEN',text:'(March 14th. You were tired. Three cases that week already, including the Delacroix situation.)',cls:'memory',pause:700},
+      {speaker:'DR. CHEN',text:'(Delacroix. You remember her. You remember her file. But you can\'t remember any of the forty-seven.)',cls:'memory',pause:800},
+      {speaker:'DR. CHEN',text:'(Not one name. Not one face. Just the checkmark. Just the green light.)',cls:'crack',pause:900},
+      {speaker:'[INTERNAL]',text:'This is not evidence. This is absence of memory, which is different.',cls:'system-msg',pause:700},
+      {speaker:'DR. CHEN',text:'(Is it? You don\'t remember signing it. You also don\'t remember not signing it.)',cls:'crack',pause:900},
+    ],
+    auto:'chen_radio_call',autoDelay:400,
+  },
+
+  chen_shuts_down:{
+    setup:async()=>{triggerGlitch(0.5);G.reliability-=5;updateReliabilityUI();},
+    messages:[
+      {speaker:'THOMAS',text:'There it is.',cls:'npc',pause:400},
+      {speaker:'THOMAS',text:'That\'s what they trained you for. Get too close to the edge and pull back.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'I\'m not trying to hurt you, Dr. Chen. I\'m trying to show you what was done.',cls:'npc',pause:700},
+      {speaker:'DR. CHEN',text:'(You know he\'s right. But knowing it and standing on a rooftop are two different problems.)',cls:'memory',pause:600},
+    ],
+    auto:'chen_radio_call',autoDelay:400,
+  },
+
+  // ─── CHAPTER 3b: RADIO CALL ──────────────────────────
+  chen_radio_call:{
+    setup:async()=>{setChapter('03b — Dispatch');},
+    messages:[{speaker:'RADIO',text:'Chen. Status update. How\'s the subject?'}],
+    choices:[
+      {text:"Stable. Talking. I need more time.",reliability:3,flag:'radio_stable',next:'chen_radio_response'},
+      {text:"He's making claims about me. About my signature on a case file.",reliability:-8,flag:'radio_disclosed',next:'chen_radio_alarm'},
+      {text:"Fine. He's testing me. Normal deflection.",reliability:0,flag:'radio_deflect',next:'chen_radio_response'},
     ]
   },
 
   chen_radio_alarm:{
-    setup:async()=>{triggerGlitch(0.4)},
+    setup:async()=>{triggerGlitch(0.4);},
     messages:[
       {speaker:'RADIO',text:'...',pause:800},
       {speaker:'RADIO',text:'Chen, that\'s not relevant to the negotiation. Focus on the subject.',pause:400},
       {speaker:'RADIO',text:'You\'re there to bring him down. Not to audit your own records.',pause:500},
       {speaker:'RADIO',text:'Do not engage with conspiracy narratives. That\'s in the training, Chen.',pause:600},
+      {speaker:'DR. CHEN',text:'(The standard response. Word for word from the manual.)',cls:'memory',pause:400},
+      {speaker:'DR. CHEN',text:'(You wrote a section of that manual.)',cls:'crack'},
     ],
-    auto:'chen_radio_response',
-    autoDelay:500,
+    auto:'chen_radio_response',autoDelay:400,
   },
 
-  chen_radio_response:{
-    auto:'thomas_system_speech',
-    autoDelay:400,
-  },
+  chen_radio_response:{auto:'thomas_system_speech',autoDelay:400},
 
-  // ─────────────────────────────────────────
-  // CHAPTER 4: THE SYSTEM
-  // ─────────────────────────────────────────
+  // ─── CHAPTER 4: THE SYSTEM ──────────────────────────
   thomas_system_speech:{
     setup:async()=>{
       setChapter('04 — The System');
@@ -1036,10 +1212,10 @@ const STORY = {
       {speaker:'THOMAS',text:'All of their files passed through Division 7.',cls:'npc',pause:1000},
     ],
     choices:[
-      {text:"If that's true, then bringing you down tonight is the best thing I can do for both of us. Alive, you're a witness.", reliability:5, flag:'strategic_empathy', next:'thomas_strategic'},
-      {text:"Division 7 has hundreds of cases. This is pattern-matching from grief and desperation.", reliability:-15, flag:'dismissed_system', next:'thomas_system_dismissed'},
-      {text:"I believe you found something. But standing here doesn't release the information.", reliability:3, flag:'pragmatic_response', next:'thomas_pragmatic'},
-      {text:"Who are the seventeen? Give me names.", reliability:2, flag:'asked_names', next:'thomas_names'},
+      {text:"If that's true, then bringing you down tonight is the best thing I can do for both of us. Alive, you're a witness.",reliability:5,flag:'strategic_empathy',next:'thomas_strategic'},
+      {text:"Division 7 has hundreds of cases. This is pattern-matching from grief and desperation.",reliability:-15,flag:'dismissed_system',next:'thomas_system_dismissed'},
+      {text:"I believe you found something. But standing here doesn't release the information.",reliability:3,flag:'pragmatic_response',next:'thomas_pragmatic'},
+      {text:"Who are the seventeen? Give me names.",reliability:2,flag:'asked_names',next:'thomas_names'},
     ]
   },
 
@@ -1048,73 +1224,54 @@ const STORY = {
       {speaker:'THOMAS',text:'...',cls:'npc',pause:700},
       {speaker:'THOMAS',text:'That is the most honest thing anyone in your position has ever said to me.',cls:'npc',pause:500},
       {speaker:'THOMAS',text:'But it only works if there\'s someone to file the testimony with who isn\'t compromised.',cls:'npc',pause:600},
-      {speaker:'THOMAS',text:'Can you guarantee that?',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'Can you guarantee that?',cls:'npc'},
     ],
     choices:[
-      {text:"No. I can't guarantee anything. But you're the only one who knows the full picture.", reliability:5, flag:'honest_no', next:'thomas_final_approach'},
-      {text:"Yes. I'll take it to Internal Review myself. Tonight.", reliability:-5, flag:'false_promise', next:'thomas_catches_lie'},
+      {text:"No. I can't guarantee anything. But you're the only one who knows the full picture.",reliability:5,flag:'honest_no',next:'thomas_final_approach'},
+      {text:"Yes. I'll take it to Internal Review myself. Tonight.",reliability:-5,flag:'false_promise',next:'thomas_catches_lie'},
     ]
   },
-
   thomas_catches_lie:{
-    setup:async()=>{triggerGlitch(0.7)},
+    setup:async()=>{triggerGlitch(0.7);},
     messages:[
       {speaker:'THOMAS',text:'You just promised something you can\'t deliver.',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'They all do that. Eventually.',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'They all do that. Eventually.',cls:'npc'},
     ],
-    auto:'thomas_final_approach',
-    autoDelay:300,
+    auto:'thomas_final_approach',autoDelay:300,
   },
-
   thomas_system_dismissed:{
-    setup:async()=>{
-      G.reliability-=15;
-      updateReliabilityUI();
-      triggerGlitch(0.7);
-      await delay(400);
-    },
+    setup:async()=>{G.reliability-=15;updateReliabilityUI();triggerGlitch(0.7);await delay(400);},
     messages:[
       {speaker:'THOMAS',text:'Pattern-matching.',cls:'npc',pause:400},
-      {speaker:'THOMAS',text:'That\'s what they said when I filed the first report.',cls:'npc',pause:300},
-      {speaker:'THOMAS',text:'And the second.',cls:'npc',pause:400},
       {speaker:'THOMAS',text:'I found one of the seventeen. A woman named Elisa Park. She\'s been in Brackenmore Psychiatric for eight months.',cls:'npc',pause:600},
       {speaker:'THOMAS',text:'She told me: "I don\'t know anymore what I actually did and what they said I did."',cls:'npc',pause:700},
-      {speaker:'THOMAS',text:'That\'s what they want. That\'s the whole mechanism.',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'That\'s what they want. That\'s the whole mechanism.',cls:'npc'},
     ],
-    auto:'thomas_final_approach',
-    autoDelay:600,
+    auto:'thomas_final_approach',autoDelay:600,
   },
-
   thomas_pragmatic:{
     messages:[
-      {speaker:'THOMAS',text:'It doesn\'t release anything. I know that.',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'I sent everything to three journalists last week. Maybe one of them opens it. Maybe none of them.',cls:'npc',pause:600},
-      {speaker:'THOMAS',text:'This isn\'t about strategy. I just... can\'t keep carrying the knowledge.',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'I know. I sent everything to three journalists last week. Maybe one of them opens it. Maybe none.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'This isn\'t about strategy. I just... can\'t keep carrying the knowledge.',cls:'npc'},
     ],
-    auto:'thomas_final_approach',
-    autoDelay:400,
+    auto:'thomas_final_approach',autoDelay:400,
   },
-
   thomas_names:{
     messages:[
-      {speaker:'THOMAS',text:'No.',cls:'npc',pause:400},
-      {speaker:'THOMAS',text:'Because if I give you names, and you put them in your radio, and your radio goes to dispatch, and dispatch goes to...',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'You see the problem.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'No. Because if I give you names, and you put them in your radio, and your radio goes to dispatch...',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'You see the problem.',cls:'npc'},
     ],
-    auto:'thomas_final_approach',
-    autoDelay:400,
+    auto:'thomas_final_approach',autoDelay:400,
   },
 
-  // ─────────────────────────────────────────
-  // CHAPTER 5: THE MOMENT OF TRUTH
-  // ─────────────────────────────────────────
+  // ─── CHAPTER 5: THE MOMENT ──────────────────────────
   thomas_final_approach:{
     setup:async()=>{
       setChapter('05 — Signal Lost');
       setAtmosphere('Harmon Tower — Roof Edge','He turns to face you fully for the first time. His eyes are completely calm.');
-      G.reliability-=5;
-      updateReliabilityUI();
-      await delay(600);
+      G.reliability-=5;updateReliabilityUI();
+      playMemoryChime(6);
+      await delay(700);
     },
     messages:[
       {speaker:'THOMAS',text:'Dr. Chen.',cls:'npc',pause:400},
@@ -1123,29 +1280,27 @@ const STORY = {
       {speaker:'THOMAS',text:'Do you believe me?',cls:'npc',pause:1000},
     ],
     choices:()=>{
-      const r=G.reliability;
-      let choices=[
-        {text:"Yes. I believe you found something real. And I'm scared of what that means.", reliability:5, flag:'believes_thomas', next:'ending_believe'},
-        {text:"I believe you believe it. That's not the same thing, but it matters.", reliability:0, flag:'partial_belief', next:'ending_partial'},
-        {text:"I don't know what I believe anymore. And that's new for me.", reliability:0, flag:'uncertainty', next:'ending_uncertain'},
+      const choices=[
+        {text:"Yes. I believe you found something real. And I'm scared of what that means.",reliability:5,flag:'believes_thomas',next:'ending_believe'},
+        {text:"I believe you believe it. That's not the same thing, but it matters.",reliability:0,flag:'partial_belief',next:'ending_partial'},
+        {text:"I don't know what I believe anymore. And that's new for me.",reliability:0,flag:'uncertainty',next:'ending_uncertain'},
       ];
-      if(r<40){
+      if(G.reliability<40){
         choices.push({
           text:"...(You can't answer. Something in your own memory won't hold still.)",
-          reliability:-10, flag:'fractured', next:'ending_fractured', dangerous:true
+          reliability:-10,flag:'fractured',next:'ending_fractured',dangerous:true
         });
       }
       return choices;
     }
   },
 
-  // ═══════════════════════════════════════════
-  // ENDINGS
-  // ═══════════════════════════════════════════
+  // ─── ENDINGS ────────────────────────────────────────
   ending_believe:{
     setup:async()=>{
       G.endingType='WITNESS';
       setAtmosphere('Harmon Tower — Roof Edge','He steps back from the edge. One foot, then two.');
+      playMemoryChime(0);
     },
     messages:[
       {speaker:'THOMAS',text:'Okay.',cls:'npc',pause:600},
@@ -1160,8 +1315,7 @@ const STORY = {
       {speaker:'[INTERNAL]',text:'It shows no record of Case 7-19.',cls:'system-msg',pause:700},
       {speaker:'[INTERNAL]',text:'Your March 14th batch — forty-seven signatures — is gone.',cls:'system-msg highlight',pause:1000},
     ],
-    auto:'end_screen_trigger',
-    autoDelay:1000,
+    auto:'end_screen_trigger',autoDelay:1000,
   },
 
   ending_partial:{
@@ -1175,7 +1329,6 @@ const STORY = {
       {speaker:'THOMAS',text:'The "yes" people scare me. They believe too fast. They can be moved too fast.',cls:'npc',pause:700},
       {speaker:'THOMAS',text:'You\'re more careful than that.',cls:'npc',pause:500},
       {speaker:'DR. CHEN',text:'Come down with me. If there\'s something here, we build it properly.',cls:'player',pause:600},
-      {speaker:'THOMAS',text:'...',cls:'npc',pause:800},
       {speaker:'THOMAS',text:'I don\'t have anywhere to go. You know that, right? This was the last option on the list.',cls:'npc',pause:700},
       {speaker:'DR. CHEN',text:'Then tonight you add one more.',cls:'player'},
       {speaker:'[SYSTEM]',text:'Subject secured. Case 7-19 pending review.',cls:'system-msg',pause:600},
@@ -1185,8 +1338,7 @@ const STORY = {
       {speaker:'[INTERNAL]',text:'You are reassigned to a different division.',cls:'system-msg highlight',pause:800},
       {speaker:'[INTERNAL]',text:'You do not know if that means you were right. Or in the way.',cls:'system-msg',pause:1000},
     ],
-    auto:'end_screen_trigger',
-    autoDelay:1000,
+    auto:'end_screen_trigger',autoDelay:1000,
   },
 
   ending_uncertain:{
@@ -1195,7 +1347,6 @@ const STORY = {
       setAtmosphere('Harmon Tower — Roof Edge','The city is very quiet.');
     },
     messages:[
-      {speaker:'THOMAS',text:'...',cls:'npc',pause:800},
       {speaker:'THOMAS',text:'That\'s the first crack.',cls:'npc',pause:500},
       {speaker:'THOMAS',text:'The first time you noticed the gap between what the system says and what you remember.',cls:'npc',pause:700},
       {speaker:'THOMAS',text:'Once you see it, you can\'t unsee it.',cls:'npc',pause:600},
@@ -1209,20 +1360,19 @@ const STORY = {
       {speaker:'[INTERNAL]',text:'You don\'t know what you\'re protecting it from.',cls:'system-msg',pause:500},
       {speaker:'[INTERNAL]',text:'Or who.',cls:'system-msg highlight',pause:1000},
     ],
-    auto:'end_screen_trigger',
-    autoDelay:1000,
+    auto:'end_screen_trigger',autoDelay:1000,
   },
 
   ending_fractured:{
     setup:async()=>{
       G.endingType='LOST';
-      G.reliability=Math.max(5,G.reliability);
-      updateReliabilityUI();
-      triggerGlitch(1.0);
+      G.reliability=Math.max(5,G.reliability);updateReliabilityUI();
+      triggerGlitch(1.0);triggerRedFlash();playRevealStrike();
+      sceneState.scene='fractured';
       setAtmosphere('???','The location data is unavailable. The timestamps are wrong.');
+      await delay(700);
     },
     messages:[
-      {speaker:'THOMAS',text:'...',cls:'npc',pause:600},
       {speaker:'THOMAS',text:'I thought so.',cls:'npc',pause:400},
       {speaker:'THOMAS',text:'They didn\'t send you to talk me down.',cls:'npc',pause:500},
       {speaker:'THOMAS',text:'They sent you because you\'re already like me. And neither of you knows it yet.',cls:'npc',pause:900},
@@ -1236,43 +1386,20 @@ const STORY = {
       {speaker:'[SYSTEM]',text:'Signal lost.',cls:'system-msg',pause:500},
       {speaker:'[SYSTEM]',text:'SIGNAL LOST.',cls:'system-msg',pause:1200},
     ],
-    auto:'end_screen_trigger',
-    autoDelay:1000,
+    auto:'end_screen_trigger',autoDelay:1000,
   },
 
   end_screen_trigger:{
-    setup:async()=>{
-      await delay(800);
-      showEndScreen();
-    },
+    setup:async()=>{await delay(800);showEndScreen();},
     messages:[]
   },
 };
 
-// ═══════════════════════════════════════════
-// END SCREEN
-// ═══════════════════════════════════════════
 const endingData={
-  WITNESS:{
-    title:'WITNESS',
-    subtitle:'You believed him. You brought him down. You lost the records. Somewhere in a batch of forty-seven signatures, you signed something. You still don\'t know what.',
-    tagline:'"The system shows what the system shows."',
-  },
-  OPERATOR:{
-    title:'OPERATOR',
-    subtitle:'You kept your distance. It was the professional thing. It may have been the right thing. You will never be certain which institutions you were protecting.',
-    tagline:'"Careful people make the best instruments."',
-  },
-  STATIC:{
-    title:'STATIC',
-    subtitle:'You didn\'t answer him. You answered yourself. The uncertainty you admitted to him was the first honest thing you\'d felt in months. It cost you nothing. Yet.',
-    tagline:'"Once you see the gap, you can\'t unsee it."',
-  },
-  LOST:{
-    title:'SIGNAL LOST',
-    subtitle:'The photograph was not you. You don\'t know when it changed. You don\'t know if it ever was. Thomas Kael stepped back from the edge that night. You did not.',
-    tagline:'"They didn\'t send you to talk him down."',
-  },
+  WITNESS:{title:'WITNESS',subtitle:'You believed him. You brought him down. You lost the records. Somewhere in a batch of forty-seven signatures, you signed something. You still don\'t know what.',tagline:'"The system shows what the system shows."'},
+  OPERATOR:{title:'OPERATOR',subtitle:'You kept your distance. It was the professional thing. It may have been the right thing. You will never be certain which institutions you were protecting.',tagline:'"Careful people make the best instruments."'},
+  STATIC:{title:'STATIC',subtitle:'You didn\'t answer him. You answered yourself. The uncertainty you admitted to him was the first honest thing you\'d felt in months. It cost you nothing. Yet.',tagline:'"Once you see the gap, you can\'t unsee it."'},
+  LOST:{title:'SIGNAL LOST',subtitle:'The photograph was not you. You don\'t know when it changed. You don\'t know if it ever was. Thomas Kael stepped back from the edge that night. You did not.',tagline:'"They didn\'t send you to talk him down."'},
 };
 
 function showEndScreen(){
@@ -1285,17 +1412,15 @@ function showEndScreen(){
   document.getElementById('end-type').textContent=G.endingType.substring(0,4);
   const es=document.getElementById('end-screen');
   es.style.display='flex';
+  if(audioInitialized&&masterGain) masterGain.gain.linearRampToValueAtTime(0.15,AC.currentTime+3);
   setTimeout(()=>{es.style.opacity='1';},100);
-  document.getElementById('game').style.opacity='0.3';
+  document.getElementById('game').style.opacity='0.25';
 }
 
-// ═══════════════════════════════════════════
-// STARTUP
-// ═══════════════════════════════════════════
 function startGame(){
+  initAudio();
   const title=document.getElementById('title-screen');
-  title.style.transition='opacity 1s ease';
-  title.style.opacity='0';
+  title.style.transition='opacity 1s ease';title.style.opacity='0';
   setTimeout(()=>{
     title.style.display='none';
     document.getElementById('game').style.display='flex';
@@ -1306,26 +1431,24 @@ function startGame(){
 }
 
 window.addEventListener('load',()=>{
+  initTitleCanvas();
   setTimeout(()=>{
-    document.getElementById('loading').style.opacity='0';
-    setTimeout(()=>{document.getElementById('loading').style.display='none';},500);
-  },1200);
+    const l=document.getElementById('loading');
+    l.style.opacity='0';
+    setTimeout(()=>l.style.display='none',500);
+  },1000);
 });
 
 window.addEventListener('resize',()=>{
-  if(canvas){
-    canvas.width=canvas.offsetWidth;
-    canvas.height=canvas.offsetHeight;
-  }
+  if(canvas){canvas.width=canvas.offsetWidth;canvas.height=canvas.offsetHeight;}
+  const tc=document.getElementById('title-canvas');
+  if(tc){tc.width=window.innerWidth;tc.height=window.innerHeight;}
 });
 
-// Keyboard shortcuts
 window.addEventListener('keydown',e=>{
   const btns=document.querySelectorAll('.choice-btn');
   const map={KeyA:0,KeyB:1,KeyC:2,KeyD:3,Digit1:0,Digit2:1,Digit3:2,Digit4:3};
-  if(map[e.code]!==undefined && btns[map[e.code]]){
-    btns[map[e.code]].click();
-  }
+  if(map[e.code]!==undefined&&btns[map[e.code]]) btns[map[e.code]].click();
 });
 </script>
 </body>
