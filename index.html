@@ -1259,67 +1259,6 @@ function setChenVisible(v,pos){sceneState.chenVisible=v;if(pos!==undefined)scene
 function setThomasLooking(v){sceneState.thomasLooking=v;}
 function setSpotlight(v,x){sceneState.spotActive=v;if(x!==undefined)sceneState.spotX=x;}
 
-const PAL={
-  sky0:'#070710',sky1:'#0d0d1a',
-  bldDark:'#0c0c14',bldMid:'#12121c',bldEdge:'#1a1a28',
-  ledge:'#1a1a24',
-  figBody:'#0e0e16',figEdge:'#5a607a',
-  pipe:'#181820',pipeH:'#222230',
-};
-
-// Sky palette per chapter
-const SKY_MOODS=[
-  ['#070710','#0d0d18'],  // ch0: intro — deep blue night
-  ['#06060d','#0a0a14'],  // ch1: first contact — darker
-  ['#07060e','#0c0a14'],  // ch2: contradiction — slight purple tint
-  ['#080610','#0e0a16'],  // ch3: the file — heavier purple
-  ['#090510','#100814'],  // ch4: the system — almost violet
-  ['#04040a','#080808'],  // ch5: signal lost — near black
-];
-
-function initCanvas(){
-  canvas=document.getElementById('visual-canvas');
-  ctx=canvas.getContext('2d');
-  canvas.width=canvas.offsetWidth;
-  canvas.height=canvas.offsetHeight;
-  for(let i=0;i<90;i++) rainParticles.push({
-    x:Math.random()*canvas.width,y:Math.random()*canvas.height,
-    vy:2.2+Math.random()*2.5,vx:-0.3+Math.random()*0.7,
-    alpha:0.12+Math.random()*0.28,len:7+Math.random()*14,
-  });
-  // Init cloud layers
-  for(let i=0;i<6;i++) sceneState.clouds.push({
-    x:Math.random(),y:0.05+Math.random()*0.25,
-    w:0.18+Math.random()*0.22,h:0.04+Math.random()*0.05,
-    speed:0.00008+Math.random()*0.00012,
-    alpha:0.04+Math.random()*0.06,
-  });
-  requestAnimationFrame(renderLoop);
-}
-
-function renderLoop(){
-  requestAnimationFrame(renderLoop);
-  sceneState.t+=0.008;
-  for(const c of sceneState.clouds){
-    c.x+=c.speed*(1+sceneState.rain*2);
-    if(c.x>1.3) c.x=-0.3;
-  }
-  drawScene();
-}
-
-function px(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),w,h);}
-
-function drawScene(){
-  const W=canvas.width,H=canvas.height;
-  ctx.clearRect(0,0,W,H);
-  const ch=Math.min(sceneState.chapterIdx,SKY_MOODS.length-1);
-  const [s0,s1]=sceneState.scene==='fractured'?['#060408','#0e060e']:SKY_MOODS[ch];
-
-  // Sky gradient
-  const skyG=ctx.createLinearGradient(0,0,0,H*0.72);
-  skyG.addColorStop(0,s0);skyG.addColorStop(1,s1);
-  ctx.fillStyle=skyG;ctx.fillRect(0,0,W,H);
-
 // Title screen procedural art
 function initTitleCanvas(){
   const tc=document.getElementById('title-canvas');
