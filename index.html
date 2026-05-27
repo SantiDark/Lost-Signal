@@ -35,21 +35,24 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
 #audio-btn{background:none;border:1px solid var(--line);color:var(--text-muted);font-family:var(--mono);font-size:9px;letter-spacing:0.1em;padding:3px 7px;cursor:pointer;transition:all 0.2s ease;}
 #audio-btn:hover{border-color:var(--text-dim);color:var(--text-dim);}
 
-/* SCENE */
-#scene{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
+/* SCENE — two-column layout */
+#scene{flex:1;display:flex;flex-direction:row;overflow:hidden;position:relative;}
+
+/* LEFT COLUMN */
+#main-col{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
 
 /* VISUAL PANEL */
-#visual{flex-shrink:0;height:240px;position:relative;overflow:hidden;border-bottom:1px solid var(--line);background:var(--bg);}
+#visual{flex-shrink:0;height:220px;position:relative;overflow:hidden;border-bottom:1px solid var(--line);background:var(--bg);}
 #visual-canvas{position:absolute;inset:0;width:100%;height:100%;}
 #visual-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 55%,var(--bg) 100%);pointer-events:none;}
-#location-tag{position:absolute;top:14px;left:20px;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-dim);border:1px solid var(--line);padding:3px 8px;background:rgba(10,10,11,0.8);}
-#atmosphere-text{position:absolute;bottom:20px;left:20px;right:20px;font-size:11px;color:var(--text-dim);font-style:italic;font-family:var(--sans);font-weight:300;letter-spacing:0.03em;transition:color 1s ease;}
+#location-tag{position:absolute;top:12px;left:16px;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-dim);border:1px solid var(--line);padding:3px 8px;background:rgba(10,10,11,0.8);}
+#atmosphere-text{position:absolute;bottom:16px;left:16px;right:16px;font-size:11px;color:var(--text-dim);font-style:italic;font-family:var(--sans);font-weight:300;letter-spacing:0.03em;transition:color 1s ease;}
 
 /* DIALOGUE */
-#dialogue{flex:1;overflow-y:auto;padding:20px 28px;display:flex;flex-direction:column;scroll-behavior:smooth;}
+#dialogue{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;scroll-behavior:smooth;}
 #dialogue::-webkit-scrollbar{width:2px}
 #dialogue::-webkit-scrollbar-thumb{background:var(--line)}
-.msg{display:flex;flex-direction:column;gap:3px;margin-bottom:14px;opacity:0;animation:fadeIn 0.5s ease forwards;}
+.msg{display:flex;flex-direction:column;gap:3px;margin-bottom:13px;opacity:0;animation:fadeIn 0.5s ease forwards;}
 .msg-speaker{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-dim);}
 .msg-text{font-size:13px;line-height:1.75;color:var(--text);font-family:var(--sans);font-weight:300;}
 .msg.player .msg-speaker{color:var(--accent)}
@@ -64,7 +67,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
 @keyframes flicker{0%,100%{opacity:1}30%{opacity:0.6}50%{opacity:0.9}70%{opacity:0.5}}
 
 /* CHOICES */
-#choices{flex-shrink:0;border-top:1px solid var(--line);background:var(--bg2);padding:10px 24px;min-height:78px;display:flex;flex-direction:column;}
+#choices{flex-shrink:0;border-top:1px solid var(--line);background:var(--bg2);padding:10px 20px;min-height:72px;display:flex;flex-direction:column;}
 #choices-label{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;}
 #choice-list{display:flex;flex-direction:column;gap:5px;}
 .choice-btn{background:none;border:1px solid var(--line);color:var(--text);font-family:var(--mono);font-size:12px;text-align:left;padding:7px 12px;cursor:pointer;border-radius:2px;letter-spacing:0.02em;transition:all 0.15s ease;position:relative;overflow:hidden;}
@@ -75,6 +78,219 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
 .choice-btn .choice-prefix{color:var(--text-dim);margin-right:8px;font-size:10px;}
 .choice-btn.danger-choice:hover{border-color:var(--danger);color:var(--danger)}
 .choice-btn.danger-choice:hover::before{background:var(--danger)}
+
+/* ══════════════════════════════════════
+   EVIDENCE PANEL — right column
+   ══════════════════════════════════════ */
+#evidence-col{
+  width:220px;flex-shrink:0;
+  border-left:1px solid var(--line);
+  background:var(--bg2);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+#evidence-header{
+  flex-shrink:0;
+  padding:10px 14px 8px;
+  border-bottom:1px solid var(--line);
+  display:flex;align-items:center;justify-content:space-between;
+}
+#evidence-title{
+  font-size:9px;letter-spacing:0.2em;text-transform:uppercase;
+  color:var(--text-muted);
+}
+#evidence-count{
+  font-size:9px;color:var(--text-muted);letter-spacing:0.05em;
+}
+#evidence-tray{
+  flex:1;overflow-y:auto;
+  padding:8px;
+  display:flex;flex-direction:column;gap:6px;
+}
+#evidence-tray::-webkit-scrollbar{width:2px}
+#evidence-tray::-webkit-scrollbar-thumb{background:var(--line)}
+#evidence-empty{
+  padding:20px 10px;
+  font-size:10px;color:var(--text-muted);
+  text-align:center;line-height:1.8;
+  font-style:italic;
+}
+.ev-item{
+  border:1px solid var(--line);
+  background:var(--bg3);
+  padding:8px 10px;
+  cursor:pointer;
+  transition:all 0.15s ease;
+  position:relative;
+}
+.ev-item:hover{border-color:var(--accent);background:var(--surface);}
+.ev-item.ev-new::after{
+  content:'NEW';
+  position:absolute;top:6px;right:7px;
+  font-size:8px;letter-spacing:0.1em;color:var(--accent);
+  animation:blink 1.5s ease infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+.ev-item.ev-unread{border-color:rgba(200,168,122,0.3);}
+.ev-icon{font-size:14px;margin-bottom:4px;display:block;}
+.ev-name{font-size:10px;color:var(--text);letter-spacing:0.05em;line-height:1.4;}
+.ev-type{font-size:9px;color:var(--text-muted);letter-spacing:0.08em;text-transform:uppercase;margin-top:2px;}
+
+/* EVIDENCE VIEWER — full-panel overlay on right col */
+#evidence-viewer{
+  position:absolute;
+  top:0;right:0;bottom:0;
+  width:220px;
+  background:var(--bg2);
+  border-left:1px solid var(--line);
+  display:flex;flex-direction:column;
+  transform:translateX(100%);
+  transition:transform 0.25s ease;
+  z-index:50;
+}
+#evidence-viewer.open{transform:translateX(0);}
+#ev-view-header{
+  flex-shrink:0;
+  padding:10px 12px 8px;
+  border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:8px;
+}
+#ev-view-back{
+  background:none;border:1px solid var(--line);
+  color:var(--text-dim);font-family:var(--mono);font-size:9px;
+  padding:3px 8px;cursor:pointer;letter-spacing:0.1em;
+  transition:all 0.15s ease;flex-shrink:0;
+}
+#ev-view-back:hover{border-color:var(--accent);color:var(--accent);}
+#ev-view-title{
+  font-size:10px;letter-spacing:0.08em;color:var(--text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  flex:1;
+}
+#ev-view-body{
+  flex:1;overflow-y:auto;padding:0;
+}
+#ev-view-body::-webkit-scrollbar{width:2px}
+#ev-view-body::-webkit-scrollbar-thumb{background:var(--line)}
+
+/* Document renders */
+.ev-doc{
+  padding:14px 14px 20px;
+  min-height:100%;
+  position:relative;
+}
+.ev-doc-paper{
+  background:#f5f0e8;
+  color:#1a1a14;
+  padding:18px 16px;
+  font-family:var(--mono);
+  font-size:10px;
+  line-height:1.7;
+  position:relative;
+  border:1px solid #c8c0a8;
+}
+.ev-doc-paper::before{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 16px,rgba(0,0,0,0.04) 16px,rgba(0,0,0,0.04) 17px);
+  pointer-events:none;
+}
+.ev-doc-stamp{
+  display:inline-block;
+  border:2px solid;
+  padding:3px 8px;
+  font-size:9px;letter-spacing:0.15em;text-transform:uppercase;
+  font-weight:500;
+  transform:rotate(-3deg);
+  margin-top:10px;
+}
+.ev-doc-stamp.red{border-color:#8a2020;color:#8a2020;}
+.ev-doc-stamp.blue{border-color:#204080;color:#204080;}
+.ev-doc-stamp.green{border-color:#206040;color:#206040;}
+.ev-redact{
+  background:#1a1a14;color:transparent;
+  user-select:none;display:inline;
+  padding:0 2px;
+}
+.ev-doc-divider{
+  border:none;border-top:1px solid rgba(0,0,0,0.15);
+  margin:10px 0;
+}
+.ev-doc-field{margin-bottom:6px;}
+.ev-doc-field-label{
+  font-size:8px;letter-spacing:0.12em;text-transform:uppercase;
+  color:#6a6050;
+}
+.ev-doc-field-val{
+  font-size:10px;color:#1a1a14;
+  margin-top:1px;
+}
+/* Badge / ID card style */
+.ev-badge{
+  background:linear-gradient(135deg,#1a2a4a,#0e1a30);
+  color:#a8c0e0;
+  padding:14px;
+  font-family:var(--mono);
+  font-size:9px;
+  line-height:1.7;
+}
+.ev-badge-title{
+  font-size:11px;letter-spacing:0.2em;text-transform:uppercase;
+  color:#e0eaf8;font-weight:500;margin-bottom:8px;
+}
+.ev-badge-photo{
+  width:40px;height:50px;
+  background:#0a1020;
+  border:1px solid #2a3a5a;
+  margin-bottom:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:8px;color:#3a4a6a;
+  letter-spacing:0.05em;
+}
+.ev-badge-field{color:#7a9ab8;font-size:9px;}
+.ev-badge-field span{color:#c0d4ec;}
+/* Audio transcript style */
+.ev-transcript{
+  background:#0c0c10;color:#8a9aa8;
+  padding:14px;font-family:var(--mono);font-size:9px;line-height:1.8;
+}
+.ev-transcript-ts{color:#4a5a68;margin-right:8px;}
+.ev-transcript-speaker{color:var(--accent2);}
+.ev-transcript-note{color:#3a4a58;font-style:italic;margin-top:6px;}
+/* Note / handwritten style */
+.ev-note{
+  background:#f8f4e4;
+  color:#2a2018;
+  padding:16px 14px;
+  font-family:Georgia,serif;
+  font-size:11px;
+  line-height:1.9;
+  position:relative;
+}
+.ev-note::before{
+  content:'';position:absolute;left:30px;top:0;bottom:0;width:1px;
+  background:rgba(200,100,100,0.3);
+}
+.ev-note-line{padding-left:18px;display:block;}
+/* Photo / image style */
+.ev-photo{
+  background:#080808;
+  padding:10px;
+  text-align:center;
+}
+.ev-photo-img{
+  width:100%;background:#111118;
+  display:block;position:relative;
+  overflow:hidden;
+}
+.ev-photo-caption{
+  font-size:9px;color:var(--text-muted);
+  margin-top:8px;font-style:italic;letter-spacing:0.05em;
+}
+/* Glitch on low reliability */
+.ev-corrupted .ev-doc-paper{
+  animation:docFlicker 3s ease infinite;
+}
+@keyframes docFlicker{0%,100%{opacity:1}48%{opacity:1}50%{opacity:0.85}52%{opacity:1}}
 
 /* MEMORY FLASH */
 #memory-flash{position:fixed;inset:0;z-index:900;background:rgba(200,168,122,0.04);pointer-events:none;opacity:0;transition:opacity 0.3s ease;}
@@ -172,16 +388,36 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
     <button id="audio-btn" onclick="toggleAudio()">♪ ON</button>
   </div>
   <div id="scene">
-    <div id="visual">
-      <canvas id="visual-canvas"></canvas>
-      <div id="visual-overlay"></div>
-      <div id="location-tag">Location: Harmon Tower — Roof Access</div>
-      <div id="atmosphere-text">Rain threatens. The city breathes below.</div>
+    <!-- LEFT: main narrative column -->
+    <div id="main-col">
+      <div id="visual">
+        <canvas id="visual-canvas"></canvas>
+        <div id="visual-overlay"></div>
+        <div id="location-tag">Location: Harmon Tower — Roof Access</div>
+        <div id="atmosphere-text">Rain threatens. The city breathes below.</div>
+      </div>
+      <div id="dialogue"></div>
+      <div id="choices">
+        <div id="choices-label">— Your response —</div>
+        <div id="choice-list"></div>
+      </div>
     </div>
-    <div id="dialogue"></div>
-    <div id="choices">
-      <div id="choices-label">— Your response —</div>
-      <div id="choice-list"></div>
+    <!-- RIGHT: evidence / objects panel -->
+    <div id="evidence-col">
+      <div id="evidence-header">
+        <span id="evidence-title">Evidence</span>
+        <span id="evidence-count">0 items</span>
+      </div>
+      <div id="evidence-tray">
+        <div id="evidence-empty">No items collected.<br>Examine objects<br>during the scene.</div>
+      </div>
+      <div id="evidence-viewer">
+        <div id="ev-view-header">
+          <button id="ev-view-back" onclick="closeEvidenceViewer()">&#8592; Back</button>
+          <span id="ev-view-title">&#8212;</span>
+        </div>
+        <div id="ev-view-body"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -823,6 +1059,229 @@ function showChoices(choices){
     btn.onclick=()=>makeChoice(c);
     list.appendChild(btn);
   });
+  // Auto-scroll dialogue so last message is visible above choices
+  const dlg=document.getElementById('dialogue');
+  requestAnimationFrame(()=>{ dlg.scrollTop=dlg.scrollHeight; });
+}
+
+// ═══════════════════════════════════════════════════════
+// EVIDENCE SYSTEM
+// ═══════════════════════════════════════════════════════
+const EVIDENCE_DB={};   // id -> item definition
+const collectedIds=[];  // ordered list
+
+const EVIDENCE_ITEMS={
+  'case_file_7_19':{
+    name:'Case File 7-19',
+    type:'Document',
+    icon:'📋',
+    render:()=>`
+      <div class="ev-doc">
+        <div class="ev-doc-paper">
+          <div class="ev-doc-field"><div class="ev-doc-field-label">Division</div><div class="ev-doc-field-val">DIVISION 7 — Crisis Response</div></div>
+          <hr class="ev-doc-divider">
+          <div class="ev-doc-field"><div class="ev-doc-field-label">Case Number</div><div class="ev-doc-field-val">7-19 / Active</div></div>
+          <div class="ev-doc-field"><div class="ev-doc-field-label">Subject</div><div class="ev-doc-field-val">KAEL, Thomas A. — DOB 1990.03.07</div></div>
+          <div class="ev-doc-field"><div class="ev-doc-field-label">Former Employer</div><div class="ev-doc-field-val">Vantex Corp — Systems Integrity Dept.</div></div>
+          <div class="ev-doc-field"><div class="ev-doc-field-label">Location</div><div class="ev-doc-field-val">Harmon Tower, Roof — Floor 34</div></div>
+          <hr class="ev-doc-divider">
+          <div class="ev-doc-field"><div class="ev-doc-field-label">Incident</div><div class="ev-doc-field-val">Subject accessed roof at 21:47. No prior incidents on record. No weapons detected.</div></div>
+          <div class="ev-doc-field"><div class="ev-doc-field-label">Note</div><div class="ev-doc-field-val">Psych. flag: <span class="ev-redact">███████████</span> (see attached eval, March 14)</div></div>
+          <div class="ev-doc-stamp red">ACTIVE INCIDENT</div>
+        </div>
+      </div>`
+  },
+  'thomas_vantex_record':{
+    name:'Vantex Personnel Record',
+    type:'Document',
+    icon:'📄',
+    render:()=>`
+      <div class="ev-doc">
+        <div class="ev-doc-paper">
+          <div class="ev-doc-field"><div class="ev-doc-field-label">Employee</div><div class="ev-doc-field-val">KAEL, Thomas — ID #VX-04471</div></div>
+          <div class="ev-doc-field"><div class="ev-doc-field-label">Role</div><div class="ev-doc-field-val">Data Integrity Specialist, Tier 3</div></div>
+          <div class="ev-doc-field"><div class="ev-doc-field-label">Status</div><div class="ev-doc-field-val">MEDICAL LEAVE (indefinite)</div></div>
+          <hr class="ev-doc-divider">
+          <div class="ev-doc-field"><div class="ev-doc-field-label">Leave Reason</div><div class="ev-doc-field-val">Voluntary psychiatric eval, 14-MAR. Suicidal ideation noted.</div></div>
+          <div class="ev-doc-field"><div class="ev-doc-field-label">Authorised by</div><div class="ev-doc-field-val">Dr. M. Chen — Div. 7</div></div>
+          <div class="ev-doc-field"><div class="ev-doc-field-label">Timestamp</div><div class="ev-doc-field-val">14-MAR 23:41:07 (AMENDED)</div></div>
+          <hr class="ev-doc-divider">
+          <div style="font-size:9px;color:#8a7060;font-style:italic">Original entry: AMENDED ×3. See revision log <span class="ev-redact">███</span></div>
+          <div class="ev-doc-stamp red">RESTRICTED</div>
+        </div>
+      </div>`
+  },
+  'chen_id_badge':{
+    name:'Division 7 ID Badge',
+    type:'Identification',
+    icon:'🪪',
+    render:()=>`
+      <div class="ev-doc" style="padding:10px">
+        <div class="ev-badge">
+          <div class="ev-badge-title">Division 7<br>Crisis Response Unit</div>
+          <div class="ev-badge-photo" id="badge-photo-el">PHOTO<br>ID</div>
+          <div class="ev-badge-field">Name: <span>Dr. Mara Chen</span></div>
+          <div class="ev-badge-field">Level: <span>Senior Negotiator</span></div>
+          <div class="ev-badge-field">Since: <span>2019.04.11</span></div>
+          <div class="ev-badge-field">Clearance: <span>L3-PSYCH</span></div>
+          <div style="margin-top:10px;font-size:8px;color:#4a6a8a;border-top:1px solid #1a2a4a;padding-top:8px">Batch auth. — MAR records<br>Last signed: <span style="color:#c87a7a" id="badge-sign-date">14-MAR 23:41</span></div>
+        </div>
+        <div style="margin-top:8px;font-size:9px;color:var(--text-muted);font-style:italic;text-align:center">Your badge. Something about the photo<br>feels slightly wrong tonight.</div>
+      </div>`
+  },
+  'march14_batch':{
+    name:'Batch Sign-off Log',
+    type:'System Record',
+    icon:'💾',
+    render:()=>{
+      const r=G.reliability;
+      const corrupted=r<50;
+      return `<div class="ev-doc ${corrupted?'ev-corrupted':''}">
+        <div class="ev-doc-paper">
+          <div class="ev-doc-field"><div class="ev-doc-field-label">System</div><div class="ev-doc-field-val">Div7-DocAuth v2.1.4</div></div>
+          <div class="ev-doc-field"><div class="ev-doc-field-label">Date</div><div class="ev-doc-field-val">14-MAR — Session 22:58–23:44</div></div>
+          <div class="ev-doc-field"><div class="ev-doc-field-label">Operator</div><div class="ev-doc-field-val">chen.m@div7.gov</div></div>
+          <hr class="ev-doc-divider">
+          <div class="ev-doc-field"><div class="ev-doc-field-label">Documents signed</div><div class="ev-doc-field-val">${corrupted?'<span class="ev-redact">██</span>':'47'} of 47</div></div>
+          <div class="ev-doc-field"><div class="ev-doc-field-label">Avg. review time</div><div class="ev-doc-field-val">${corrupted?'<span class="ev-redact">████</span>':'00:01:04 per document'}</div></div>
+          <div class="ev-doc-field"><div class="ev-doc-field-label">Doc #31</div><div class="ev-doc-field-val">KAEL, T. — Psych. Eval. Auth.<br>Review time: <span style="color:#c87a7a">00:00:03</span></div></div>
+          <hr class="ev-doc-divider">
+          <div style="font-size:9px;color:#8a7060">Three seconds. You spent three seconds on document 31.</div>
+          <div class="ev-doc-stamp ${corrupted?'red':'blue'}">${corrupted?'DATA ERROR':'VERIFIED'}</div>
+        </div>
+      </div>`;
+    }
+  },
+  'radio_transcript':{
+    name:'Radio Transcript',
+    type:'Audio Log',
+    icon:'📡',
+    render:()=>`
+      <div class="ev-doc" style="padding:8px">
+        <div class="ev-transcript">
+          <div style="color:#3a4a58;margin-bottom:8px;font-size:8px;letter-spacing:0.1em">DIV7-COMMS // CASE 7-19 // ENCRYPTED</div>
+          <div><span class="ev-transcript-ts">21:52</span><span class="ev-transcript-speaker">DISPATCH:</span> Chen. You're up. Uniform says twenty min, no movement.</div>
+          <div style="margin-top:6px"><span class="ev-transcript-ts">21:54</span><span class="ev-transcript-speaker">CHEN:</span> On roof. Visual confirmed.</div>
+          <div style="margin-top:6px"><span class="ev-transcript-ts">22:06</span><span class="ev-transcript-speaker">DISPATCH:</span> Status?</div>
+          <div style="margin-top:4px"><span class="ev-transcript-ts">22:06</span><span class="ev-transcript-speaker">CHEN:</span> [response logged]</div>
+          <div style="margin-top:6px"><span class="ev-transcript-ts">22:07</span><span class="ev-transcript-speaker">DISPATCH:</span> Do not engage conspiracy narratives. Focus on subject.</div>
+          <div style="margin-top:6px"><span class="ev-transcript-ts">22:07</span><span class="ev-transcript-speaker">CHEN:</span> [acknowledged]</div>
+          <div style="margin-top:10px"><span class="ev-transcript-ts">22:08</span><span class="ev-transcript-speaker" style="color:#c87a7a">DISPATCH:</span> <span style="color:#c87a7a">Note added to file: Subject claims knowledge of negotiator. Monitor for compromise.</span></div>
+          <div class="ev-transcript-note">* Dispatch added a flag to YOUR file.<br>* You were not informed of this.</div>
+        </div>
+      </div>`
+  },
+  'elisa_park_note':{
+    name:'Elisa Park — Note',
+    type:'Handwritten',
+    icon:'✉️',
+    render:()=>`
+      <div class="ev-doc" style="padding:8px">
+        <div class="ev-note">
+          <span class="ev-note-line">Thomas —</span>
+          <span class="ev-note-line" style="margin-top:8px">I don't know how long</span>
+          <span class="ev-note-line">I'll be able to keep</span>
+          <span class="ev-note-line">sending these out.</span>
+          <span class="ev-note-line" style="margin-top:8px">The thing they do is</span>
+          <span class="ev-note-line">make you unsure. Not</span>
+          <span class="ev-note-line">scared. Just... unsure.</span>
+          <span class="ev-note-line" style="margin-top:8px">I filed a correction</span>
+          <span class="ev-note-line">seven times. Each time</span>
+          <span class="ev-note-line">it came back worse.</span>
+          <span class="ev-note-line" style="margin-top:8px">Don't let them make</span>
+          <span class="ev-note-line">you unsure of yourself.</span>
+          <span class="ev-note-line">That's the whole game.</span>
+          <span class="ev-note-line" style="margin-top:12px;color:#8a7060">— E</span>
+        </div>
+        <div style="margin-top:8px;font-size:9px;color:var(--text-muted);text-align:center;font-style:italic">Found in Thomas's coat pocket.<br>Brackenmore Psych. postmark.</div>
+      </div>`
+  },
+  'seventeen_list':{
+    name:'The Seventeen',
+    type:'Research',
+    icon:'📊',
+    render:()=>`
+      <div class="ev-doc">
+        <div class="ev-doc-paper">
+          <div style="font-size:9px;font-weight:500;margin-bottom:8px;color:#1a1a14">PATTERN ANALYSIS — DRAFT</div>
+          <div style="font-size:8px;color:#6a6050;margin-bottom:10px">Compiled by: T. Kael. 7 months research.</div>
+          <div style="font-size:9px;line-height:1.8">
+            <div style="display:grid;grid-template-columns:1fr 2fr;gap:2px 8px;font-size:8px">
+              <div style="color:#8a7060">NAME</div><div style="color:#8a7060">STATUS</div>
+              <div>Park, E.</div><div style="color:#c87a7a">Brackenmore Psych.</div>
+              <div>Velarde, O.</div><div style="color:#c87a7a">Unemployable</div>
+              <div>Nguyen, S.</div><div style="color:#c87a7a">Unemployable</div>
+              <div>Diallo, A.</div><div style="color:#8a8040">Under review</div>
+              <div>Morrison, C.</div><div style="color:#c87a7a">Brackenmore Psych.</div>
+              <div><span class="ev-redact">█████████</span></div><div style="color:#c87a7a">Unknown</div>
+              <div><span class="ev-redact">█████████</span></div><div style="color:#c87a7a">Unknown</div>
+              <div colspan="2" style="color:#6a6050;font-style:italic;margin-top:4px">+ 10 further entries redacted<br>by [system — auto-moderation]</div>
+            </div>
+          </div>
+          <hr class="ev-doc-divider">
+          <div style="font-size:8px;color:#8a7060">Common thread: all filed complaints<br>via systems passing through Div. 7.</div>
+          <div class="ev-doc-stamp red">UNVERIFIED</div>
+        </div>
+      </div>`
+  },
+};
+
+function addEvidence(id){
+  if(collectedIds.includes(id)) return;
+  collectedIds.push(id);
+  EVIDENCE_DB[id]=EVIDENCE_ITEMS[id];
+  renderEvidenceTray();
+  // Pulse the tray to signal new item
+  const col=document.getElementById('evidence-col');
+  col.style.borderLeft='1px solid rgba(200,168,122,0.6)';
+  setTimeout(()=>col.style.borderLeft='1px solid var(--line)',1200);
+  // Play chime
+  if(audioInitialized) playMemoryChime(3);
+}
+
+function renderEvidenceTray(){
+  const tray=document.getElementById('evidence-tray');
+  const empty=document.getElementById('evidence-empty');
+  const countEl=document.getElementById('evidence-count');
+  countEl.textContent=collectedIds.length+' item'+(collectedIds.length!==1?'s':'');
+  tray.innerHTML='';
+  if(collectedIds.length===0){
+    tray.appendChild(empty||createEmptyEl());return;
+  }
+  collectedIds.forEach(id=>{
+    const item=EVIDENCE_DB[id];
+    if(!item) return;
+    const el=document.createElement('div');
+    el.className='ev-item'+(item._new?' ev-new ev-unread':'');
+    el.innerHTML=`<span class="ev-icon">${item.icon}</span><div class="ev-name">${item.name}</div><div class="ev-type">${item.type}</div>`;
+    el.onclick=()=>openEvidenceViewer(id);
+    tray.appendChild(el);
+  });
+}
+
+function openEvidenceViewer(id){
+  const item=EVIDENCE_DB[id];
+  if(!item) return;
+  item._new=false;
+  renderEvidenceTray();
+  document.getElementById('ev-view-title').textContent=item.name;
+  document.getElementById('ev-view-body').innerHTML=item.render();
+  document.getElementById('evidence-viewer').classList.add('open');
+  if(audioInitialized) playPageTurn();
+}
+
+function closeEvidenceViewer(){
+  document.getElementById('evidence-viewer').classList.remove('open');
+}
+
+function playPageTurn(){
+  if(!AC||!audioInitialized) return;
+  const osc=AC.createOscillator();const g=AC.createGain();
+  osc.type='sine';osc.frequency.value=600;
+  g.gain.setValueAtTime(0.04,AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+0.08);
+  osc.connect(g);g.connect(masterGain);
+  osc.start();osc.stop(AC.currentTime+0.1);
 }
 
 function clearChoices(){
@@ -901,6 +1360,8 @@ const STORY={
     setup:async()=>{
       setChapter('01 — First Contact');
       setAtmosphere('Harmon Tower — Roof Access, Floor 34','The city looks wrong from up here. Like a circuit board no one finished.');
+      addEvidence('case_file_7_19');
+      addEvidence('chen_id_badge');
     },
     messages:[
       {speaker:'[SYSTEM]',text:'DIVISION 7 — CRISIS RESPONSE UNIT',cls:'system-msg',pause:600},
@@ -1017,6 +1478,7 @@ const STORY={
   thomas_reveals_chen:{
     setup:async()=>{
       G.reliability-=15;updateReliabilityUI();triggerGlitch(0.6);playRevealStrike();
+      addEvidence('thomas_vantex_record');
       await delay(600);
     },
     messages:[
@@ -1074,6 +1536,7 @@ const STORY={
       triggerGlitch(0.5);
       setAtmosphere('Harmon Tower — Roof Access','The wind picks up. Something cold moves through you that isn\'t weather.');
       playMemoryChime(0);
+      addEvidence('march14_batch');
       await delay(700);
     },
     messages:[
@@ -1183,7 +1646,7 @@ const STORY={
   },
 
   chen_radio_alarm:{
-    setup:async()=>{triggerGlitch(0.4);},
+    setup:async()=>{triggerGlitch(0.4);addEvidence('radio_transcript');},
     messages:[
       {speaker:'RADIO',text:'...',pause:800},
       {speaker:'RADIO',text:'Chen, that\'s not relevant to the negotiation. Focus on the subject.',pause:400},
@@ -1202,6 +1665,8 @@ const STORY={
     setup:async()=>{
       setChapter('04 — The System');
       setAtmosphere('Harmon Tower — Roof Access','The city flickers. Or maybe that\'s you.');
+      addEvidence('elisa_park_note');
+      addEvidence('seventeen_list');
     },
     messages:[
       {speaker:'THOMAS',text:'You want to know what I actually found?',cls:'npc',pause:500},
