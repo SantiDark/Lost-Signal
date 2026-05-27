@@ -42,11 +42,24 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
 #main-col{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
 
 /* VISUAL PANEL */
-#visual{flex-shrink:0;height:220px;position:relative;overflow:hidden;border-bottom:1px solid var(--line);background:var(--bg);}
+#visual{flex-shrink:0;height:260px;position:relative;overflow:hidden;border-bottom:1px solid var(--line);background:var(--bg);}
 #visual-canvas{position:absolute;inset:0;width:100%;height:100%;}
 #visual-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 55%,var(--bg) 100%);pointer-events:none;}
 #location-tag{position:absolute;top:12px;left:16px;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-dim);border:1px solid var(--line);padding:3px 8px;background:rgba(10,10,11,0.8);}
-#atmosphere-text{position:absolute;bottom:16px;left:16px;right:16px;font-size:11px;color:var(--text-dim);font-style:italic;font-family:var(--sans);font-weight:300;letter-spacing:0.03em;transition:color 1s ease;}
+#atmosphere-text{position:absolute;bottom:16px;left:16px;right:200px;font-size:11px;color:var(--text-dim);font-style:italic;font-family:var(--sans);font-weight:300;letter-spacing:0.03em;transition:color 1s ease;}
+#scene-chapter-label{position:absolute;top:12px;right:16px;font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(200,168,122,0.45);font-family:var(--mono);pointer-events:none;transition:opacity 0.8s ease;}
+#scene-trust-bar{position:absolute;bottom:38px;right:16px;display:flex;align-items:center;gap:6px;pointer-events:none;}
+#scene-trust-label{font-size:8px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(122,159,200,0.4);}
+#scene-trust-fill-wrap{width:44px;height:2px;background:rgba(122,159,200,0.12);border-radius:1px;}
+#scene-trust-fill{height:100%;width:50%;background:rgba(122,159,200,0.55);border-radius:1px;transition:width 1.2s ease,background 1.2s ease;}
+
+/* VOICE INDICATOR — pulse dot while speaking */
+.msg-speaking .msg-speaker::after{
+  content:'';display:inline-block;width:4px;height:4px;border-radius:50%;
+  background:currentColor;margin-left:6px;vertical-align:middle;opacity:0.7;
+  animation:speakPulse 0.35s ease infinite alternate;
+}
+@keyframes speakPulse{from{opacity:0.2;transform:scale(0.7)}to{opacity:0.9;transform:scale(1.3)}}
 
 /* DIALOGUE */
 #dialogue{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;scroll-behavior:smooth;}
@@ -520,6 +533,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
       </div>
     </div>
     <button id="audio-btn" onclick="toggleAudio()">♪ ON</button>
+    <button id="voice-btn" onclick="toggleVoice()" style="background:none;border:1px solid var(--line);color:var(--text-muted);font-family:var(--mono);font-size:9px;letter-spacing:0.1em;padding:3px 7px;cursor:pointer;transition:all 0.2s ease;">🎙 ON</button>
   </div>
   <div id="scene">
     <!-- LEFT: main narrative column -->
@@ -529,6 +543,11 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
         <div id="visual-overlay"></div>
         <div id="location-tag">Location: Harmon Tower — Roof Access</div>
         <div id="atmosphere-text">Rain threatens. The city breathes below.</div>
+        <div id="scene-chapter-label">—</div>
+        <div id="scene-trust-bar">
+          <span id="scene-trust-label">Trust</span>
+          <div id="scene-trust-fill-wrap"><div id="scene-trust-fill"></div></div>
+        </div>
       </div>
       <div id="dialogue"></div>
       <div id="choices">
@@ -737,34 +756,55 @@ function toggleAudio(){
 }
 
 // ═══════════════════════════════════════════════════════
-// VISUAL RENDERER — Detailed pixel-art style canvas
+// VISUAL RENDERER — Reactive scene, state-driven
 // ═══════════════════════════════════════════════════════
-let canvas,ctx,sceneState={scene:'rooftop',rain:0,glitchLevel:0,t:0,thomasState:'ledge',moodShift:0};
+let canvas,ctx,sceneState={
+  scene:'rooftop',rain:0,glitchLevel:0,t:0,moodShift:0,
+  thomasEdgeDist:0,  // 0=on ledge, 1=walked back
+  chenVisible:false, // Chen figure appears later
+  chenPos:0.15,      // 0..1 left-right
+  thomasLooking:false,// Thomas turned to face Chen
+  chapterIdx:0,
+  clouds:[],
+  spotActive:false,
+  spotX:0.65,
+};
 const rainParticles=[];
 
-// Pixel-art color palette (drawn with rect calls, no paths)
 const PAL={
-  sky0:'#070710',sky1:'#0d0d1a',sky2:'#12101e',
+  sky0:'#070710',sky1:'#0d0d1a',
   bldDark:'#0c0c14',bldMid:'#12121c',bldEdge:'#1a1a28',
-  winOff:'#1e1e2e',winLit:'#c8a060',winDim:'#4a4060',winBlue:'#405880',
-  ledge:'#1a1a24',ledgeEdge:'#2a2a3c',
-  figBody:'#0e0e16',figEdge:'#5a607a',figGlow:'rgba(120,140,200,0.12)',
+  ledge:'#1a1a24',
+  figBody:'#0e0e16',figEdge:'#5a607a',
   pipe:'#181820',pipeH:'#222230',
-  star:'rgba(255,255,220,0.7)',
-  fog:'rgba(14,14,26,0.6)',
-  redLight:'rgba(200,60,60,0.15)',
-  blueLight:'rgba(60,100,200,0.1)',
 };
+
+// Sky palette per chapter
+const SKY_MOODS=[
+  ['#070710','#0d0d18'],  // ch0: intro — deep blue night
+  ['#06060d','#0a0a14'],  // ch1: first contact — darker
+  ['#07060e','#0c0a14'],  // ch2: contradiction — slight purple tint
+  ['#080610','#0e0a16'],  // ch3: the file — heavier purple
+  ['#090510','#100814'],  // ch4: the system — almost violet
+  ['#04040a','#080808'],  // ch5: signal lost — near black
+];
 
 function initCanvas(){
   canvas=document.getElementById('visual-canvas');
   ctx=canvas.getContext('2d');
   canvas.width=canvas.offsetWidth;
   canvas.height=canvas.offsetHeight;
-  for(let i=0;i<80;i++) rainParticles.push({
+  for(let i=0;i<90;i++) rainParticles.push({
     x:Math.random()*canvas.width,y:Math.random()*canvas.height,
-    vy:2+Math.random()*2.5,vx:-0.3+Math.random()*0.6,
-    alpha:0.15+Math.random()*0.3,len:6+Math.random()*12,
+    vy:2.2+Math.random()*2.5,vx:-0.3+Math.random()*0.7,
+    alpha:0.12+Math.random()*0.28,len:7+Math.random()*14,
+  });
+  // Init cloud layers
+  for(let i=0;i<6;i++) sceneState.clouds.push({
+    x:Math.random(),y:0.05+Math.random()*0.25,
+    w:0.18+Math.random()*0.22,h:0.04+Math.random()*0.05,
+    speed:0.00008+Math.random()*0.00012,
+    alpha:0.04+Math.random()*0.06,
   });
   requestAnimationFrame(renderLoop);
 }
@@ -772,84 +812,116 @@ function initCanvas(){
 function renderLoop(){
   requestAnimationFrame(renderLoop);
   sceneState.t+=0.008;
+  // Animate clouds
+  for(const c of sceneState.clouds){
+    c.x+=c.speed*(1+sceneState.rain*2);
+    if(c.x>1.3) c.x=-0.3;
+  }
   drawScene();
+  updateSceneOverlays();
 }
 
 function px(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),w,h);}
 
+function updateSceneOverlays(){
+  // Trust bar: based on reliability
+  const trust=Math.max(0,Math.min(100,G.reliability));
+  const tf=document.getElementById('scene-trust-fill');
+  if(tf){
+    tf.style.width=trust+'%';
+    tf.style.background=trust>60?'rgba(122,159,200,0.6)':trust>30?'rgba(200,168,122,0.6)':'rgba(200,122,122,0.6)';
+  }
+}
+
 function drawScene(){
   const W=canvas.width,H=canvas.height;
   ctx.clearRect(0,0,W,H);
+  const ch=Math.min(sceneState.chapterIdx,SKY_MOODS.length-1);
+  const [s0,s1]=sceneState.scene==='fractured'?['#060408','#0e060e']:SKY_MOODS[ch];
 
-  // Sky
-  const skyG=ctx.createLinearGradient(0,0,0,H*0.65);
-  if(sceneState.scene==='fractured'){
-    skyG.addColorStop(0,'#060408');skyG.addColorStop(1,'#0e080e');
-  } else if(sceneState.moodShift>0.5){
-    skyG.addColorStop(0,'#060609');skyG.addColorStop(1,'#0c0c12');
-  } else {
-    skyG.addColorStop(0,PAL.sky0);skyG.addColorStop(1,PAL.sky1);
+  // Sky gradient
+  const skyG=ctx.createLinearGradient(0,0,0,H*0.72);
+  skyG.addColorStop(0,s0);skyG.addColorStop(1,s1);
+  ctx.fillStyle=skyG;ctx.fillRect(0,0,W,H);
+
+  // Stars — fade as chapter advances and rain builds
+  const starAlpha=Math.max(0,(1-sceneState.chapterIdx*0.18))*(1-sceneState.rain*0.9);
+  if(starAlpha>0.02) drawStars(W,H,starAlpha);
+
+  // Cloud layers — build as tension rises
+  drawClouds(W,H);
+
+  // Fog layer
+  if(sceneState.rain>0.15||sceneState.chapterIdx>2){
+    const fogA=(sceneState.rain*0.25)+(sceneState.chapterIdx*0.04);
+    ctx.fillStyle=`rgba(10,8,18,${Math.min(0.4,fogA)})`;
+    ctx.fillRect(0,H*0.25,W,H*0.5);
   }
-  ctx.fillStyle=skyG;
-  ctx.fillRect(0,0,W,H);
 
-  // Stars (far background, subtle)
-  drawStars(W,H);
-
-  // Distant fog layer
-  if(sceneState.rain>0.2){
-    ctx.fillStyle=`rgba(14,14,26,${sceneState.rain*0.3})`;
-    ctx.fillRect(0,H*0.3,W,H*0.5);
-  }
-
-  // Background buildings (far, darker)
   drawBuildings(W,H,true);
-
-  // Foreground buildings
   drawBuildings(W,H,false);
-
-  // Rooftop ledge
   drawLedge(W,H);
-
-  // Rooftop details
   drawRooftopDetails(W,H);
 
-  // Thomas figure
+  // Spotlight / flashlight cone (active when spotActive)
+  if(sceneState.spotActive) drawSpotlight(W,H);
+
+  // Both figures
+  drawChen(W,H);
   drawThomas(W,H);
 
-  // Rain
   if(sceneState.rain>0) drawRain(W,H);
-
-  // Glitch corruption
   if(sceneState.glitchLevel>0.05) drawGlitch(W,H);
-
-  // Atmospheric light bloom on city
   drawBloom(W,H);
 
-  // Bottom fade to dialogue
-  const fade=ctx.createLinearGradient(0,H*0.5,0,H);
-  fade.addColorStop(0,'transparent');
-  fade.addColorStop(1,'#0a0a0b');
-  ctx.fillStyle=fade;
-  ctx.fillRect(0,0,W,H);
-
-  // Vignette
-  const vig=ctx.createRadialGradient(W/2,H*0.4,H*0.15,W/2,H*0.4,H*0.85);
-  vig.addColorStop(0,'transparent');vig.addColorStop(1,'rgba(0,0,0,0.55)');
+  // Bottom vignette
+  const fade=ctx.createLinearGradient(0,H*0.52,0,H);
+  fade.addColorStop(0,'transparent');fade.addColorStop(1,'#0a0a0b');
+  ctx.fillStyle=fade;ctx.fillRect(0,0,W,H);
+  const vig=ctx.createRadialGradient(W/2,H*0.4,H*0.12,W/2,H*0.4,H*0.9);
+  vig.addColorStop(0,'transparent');vig.addColorStop(1,'rgba(0,0,0,0.5)');
   ctx.fillStyle=vig;ctx.fillRect(0,0,W,H);
 }
 
-function drawStars(W,H){
-  // Fixed star field — seeded positions
+function drawStars(W,H,baseAlpha){
   const stars=[[0.05,0.08],[0.12,0.14],[0.19,0.04],[0.28,0.11],[0.35,0.06],[0.41,0.15],
     [0.48,0.03],[0.55,0.09],[0.62,0.13],[0.7,0.05],[0.76,0.10],[0.83,0.07],[0.9,0.12],[0.96,0.04]];
-  const t=sceneState.t;
   for(const [sx,sy] of stars){
-    const blink=0.3+0.4*Math.sin(t*0.5+sx*20);
-    if(sceneState.rain>0.5) continue; // stars hidden by clouds/rain
-    ctx.fillStyle=`rgba(220,220,200,${blink*0.5})`;
+    const blink=0.3+0.4*Math.sin(sceneState.t*0.5+sx*20);
+    ctx.fillStyle=`rgba(220,220,200,${blink*baseAlpha*0.7})`;
     ctx.fillRect(Math.round(sx*W),Math.round(sy*H),1,1);
   }
+}
+
+function drawClouds(W,H){
+  const density=Math.min(1,(sceneState.chapterIdx*0.2)+sceneState.rain*0.5);
+  for(const c of sceneState.clouds){
+    const alpha=c.alpha*(0.4+density*0.6);
+    const cg=ctx.createRadialGradient(c.x*W,c.y*H,0,c.x*W,c.y*H,c.w*W*0.5);
+    cg.addColorStop(0,`rgba(20,16,30,${alpha})`);
+    cg.addColorStop(1,'transparent');
+    ctx.fillStyle=cg;
+    ctx.beginPath();
+    ctx.ellipse(c.x*W,c.y*H,c.w*W*0.5,c.h*H*0.5,0,0,Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function drawSpotlight(W,H){
+  const lY=H*0.71;
+  const sx=sceneState.spotX*W;
+  const sg=ctx.createRadialGradient(sx,lY-10,0,sx,lY*0.3,lY*0.7);
+  sg.addColorStop(0,'rgba(200,190,160,0.08)');
+  sg.addColorStop(0.4,'rgba(180,170,140,0.03)');
+  sg.addColorStop(1,'transparent');
+  ctx.fillStyle=sg;ctx.fillRect(0,0,W,H);
+  // Cone lines
+  ctx.save();
+  ctx.strokeStyle='rgba(200,190,160,0.04)';ctx.lineWidth=1;
+  for(let a=-0.3;a<=0.3;a+=0.15){
+    ctx.beginPath();ctx.moveTo(sx,0);ctx.lineTo(sx+Math.sin(a)*lY,lY);ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function drawBuildings(W,H,far){
@@ -867,29 +939,24 @@ function drawBuildings(W,H,far){
     {x:606,w:38,h:140},{x:648,w:33,h:110},{x:685,w:56,h:190},{x:745,w:42,h:148},
     {x:791,w:36,h:130},
   ];
-  const alpha=far?0.6:1;
   const t=sceneState.t;
   for(const b of bldgs){
-    const darkC=far?`rgba(8,8,14,${alpha})`:`rgba(10,10,18,${alpha})`;
-    px(b.x,baseY-b.h,b.w,b.h+H,darkC);
-    // building edge highlight (1px)
+    ctx.fillStyle=far?'rgba(8,8,14,0.9)':'rgba(10,10,18,0.95)';
+    ctx.fillRect(b.x,baseY-b.h,b.w,b.h+H);
     px(b.x,baseY-b.h,1,b.h,far?'rgba(24,24,40,0.4)':'rgba(28,28,48,0.7)');
-    px(b.x+b.w-1,baseY-b.h,1,b.h,far?'rgba(24,24,40,0.3)':'rgba(22,22,38,0.5)');
-
-    // Windows — pixel art style, 4x5 blocks
+    px(b.x+b.w-1,baseY-b.h,1,b.h,far?'rgba(20,20,36,0.3)':'rgba(22,22,38,0.5)');
+    // Windows
     const winW=4,winH=5,gapX=9,gapY=13;
-    const startX=b.x+5,startY=baseY-b.h+8;
-    for(let wy=startY;wy<baseY-8;wy+=gapY){
-      for(let wx=startX;wx<b.x+b.w-5;wx+=gapX){
+    for(let wy=baseY-b.h+8;wy<baseY-8;wy+=gapY){
+      for(let wx=b.x+5;wx<b.x+b.w-5;wx+=gapX){
         const seed=wx*1000+wy*13+b.x;
         const flicker=Math.sin(t*0.3+seed*0.001);
         const state=((seed*7)%10);
         let wc;
-        if(state<3) wc=`rgba(200,160,80,${0.06+flicker*0.03})`; // warm lit
-        else if(state<5) wc=`rgba(60,80,140,${0.12+flicker*0.04})`; // cold lit
-        else if(state<7) wc=`rgba(30,30,48,0.5)`; // dim
-        else wc=`rgba(14,14,24,0.8)`; // off
-        // glitch: random windows flash red at low reliability
+        if(state<3) wc=`rgba(200,160,80,${0.06+flicker*0.03})`;
+        else if(state<5) wc=`rgba(60,80,140,${0.12+flicker*0.04})`;
+        else if(state<7) wc=`rgba(30,30,48,0.5)`;
+        else wc=`rgba(14,14,24,0.8)`;
         if(sceneState.glitchLevel>0.3&&Math.sin(t*5+seed)>0.97)
           wc=`rgba(180,60,60,${0.15*sceneState.glitchLevel})`;
         px(wx,wy,winW,winH,wc);
@@ -900,176 +967,167 @@ function drawBuildings(W,H,far){
 
 function drawLedge(W,H){
   const lY=H*0.71;
-  // Main ledge slab
   px(0,lY,W,6,PAL.ledge);
-  px(0,lY,W,1,'rgba(40,40,60,0.9)'); // top edge highlight
-  px(0,lY+5,W,2,'rgba(6,6,10,0.8)'); // shadow
-
-  // Ledge texture — pixel cracks & panels
-  for(let x=0;x<W;x+=48){
-    px(x,lY+1,1,4,'rgba(20,20,32,0.6)');
-  }
-  // Parapet / low wall
+  px(0,lY,W,1,'rgba(40,40,60,0.9)');
+  px(0,lY+5,W,2,'rgba(6,6,10,0.8)');
+  for(let x=0;x<W;x+=48) px(x,lY+1,1,4,'rgba(20,20,32,0.6)');
   px(0,lY-8,W,8,PAL.bldMid);
-  px(0,lY-8,W,1,'rgba(36,36,52,0.8)'); // top line
-  // Parapet crenellations
+  px(0,lY-8,W,1,'rgba(36,36,52,0.8)');
   for(let x=20;x<W;x+=60){
     px(x,lY-14,20,6,'rgba(20,20,32,0.9)');
     px(x,lY-14,20,1,'rgba(40,40,58,0.9)');
   }
-  // Floor puddles (from rain)
   if(sceneState.rain>0.3){
     const pa=sceneState.rain*0.18;
     ctx.fillStyle=`rgba(40,50,80,${pa})`;
-    ctx.fillRect(60,lY+3,80,3);
-    ctx.fillRect(250,lY+3,50,2);
-    ctx.fillRect(420,lY+3,90,3);
+    ctx.fillRect(60,lY+3,80,3);ctx.fillRect(250,lY+3,50,2);ctx.fillRect(420,lY+3,90,3);
   }
 }
 
 function drawRooftopDetails(W,H){
   const lY=H*0.71;
-
-  // Water tower (right side)
+  // Water tower
   const tx=W*0.85,ty=lY-55;
-  px(tx+14,ty+30,4,20,PAL.pipe); // left leg
-  px(tx+28,ty+30,4,20,PAL.pipe); // right leg
-  // barrel
+  px(tx+14,ty+30,4,20,PAL.pipe);px(tx+28,ty+30,4,20,PAL.pipe);
   for(let i=0;i<7;i++) px(tx+8,ty+i*5,30,4,i%2===0?PAL.pipe:PAL.pipeH);
-  px(tx+8,ty,30,3,'rgba(32,32,44,0.9)'); // lid
-  // barrel rings
-  px(tx+8,ty+8,30,1,'rgba(40,44,58,0.8)');
-  px(tx+8,ty+18,30,1,'rgba(40,44,58,0.8)');
-
-  // HVAC box (left side)
-  px(W*0.08,lY-24,36,18,PAL.bldEdge);
-  px(W*0.08,lY-24,36,2,'rgba(36,36,52,0.9)');
-  // vents
+  px(tx+8,ty,30,3,'rgba(32,32,44,0.9)');
+  px(tx+8,ty+8,30,1,'rgba(40,44,58,0.8)');px(tx+8,ty+18,30,1,'rgba(40,44,58,0.8)');
+  // HVAC box
+  px(W*0.08,lY-24,36,18,PAL.bldEdge);px(W*0.08,lY-24,36,2,'rgba(36,36,52,0.9)');
   for(let i=0;i<4;i++) px(W*0.08+4+i*8,lY-20,2,10,'rgba(12,12,20,0.8)');
-
-  // Pipe running across rooftop
-  px(0,lY-4,W*0.55,2,PAL.pipe);
-  px(W*0.55,lY-12,2,12,PAL.pipe); // vertical bend
-
-  // Antenna (mid-left)
+  // Pipe
+  px(0,lY-4,W*0.55,2,PAL.pipe);px(W*0.55,lY-12,2,12,PAL.pipe);
+  // Antenna
   const ax=W*0.22,ay=lY-8;
   px(ax,ay-40,1,40,'rgba(48,52,68,0.9)');
-  px(ax-8,ay-40,16,1,'rgba(48,52,68,0.7)'); // crossbar
+  px(ax-8,ay-40,16,1,'rgba(48,52,68,0.7)');
   px(ax-4,ay-36,8,1,'rgba(48,52,68,0.5)');
-  // blink light at top
   const blink=Math.sin(sceneState.t*1.2)>0.6;
   if(blink) px(ax-1,ay-42,3,3,'rgba(200,60,60,0.9)');
-
-  // Chain-link fence shadow (far edge)
   for(let x=0;x<W*0.3;x+=4){
     const fy=lY-14+Math.sin(x*0.4)*1;
     px(x,fy,2,12,'rgba(30,34,48,0.25)');
   }
 }
 
+function drawChen(W,H){
+  if(!sceneState.chenVisible) return;
+  const lY=H*0.71;
+  const cx=Math.round(W*sceneState.chenPos);
+  const cy=lY-8;
+  // Chen is slightly closer to viewer (smaller = further; she's near the door)
+  const scale=0.82;
+  // Subtle glow — she has a torch/flashlight
+  if(sceneState.spotActive){
+    const fg=ctx.createRadialGradient(cx,cy-20,0,cx,cy-20,30);
+    fg.addColorStop(0,'rgba(180,160,100,0.08)');fg.addColorStop(1,'transparent');
+    ctx.fillStyle=fg;ctx.fillRect(cx-35,cy-60,70,70);
+  }
+  ctx.save();ctx.translate(cx,cy);ctx.scale(scale,scale);
+  // shadow
+  px(-8,2,18,3,'rgba(0,0,0,0.4)');
+  // legs
+  px(-5,0,4,16,PAL.figBody);px(2,0,4,16,PAL.figBody);
+  px(-5,13,4,2,'rgba(80,88,120,0.6)');px(2,13,4,2,'rgba(80,88,120,0.6)');
+  // torso — slightly different coat (lighter edge for differentiation)
+  px(-8,-32,16,32,PAL.figBody);
+  px(-8,-32,1,32,'rgba(100,108,150,0.5)'); // lighter edge = Chen
+  px(7,-32,1,32,'rgba(80,88,120,0.4)');
+  // Head
+  px(-5,-46,11,12,PAL.figBody);
+  px(-5,-46,11,1,'rgba(100,108,140,0.6)');
+  // hair (slightly different — short)
+  px(-4,-46,10,4,'rgba(50,48,60,0.9)');
+  // eyes
+  px(-2,-40,2,2,'rgba(200,200,210,0.5)');px(1,-40,2,2,'rgba(200,200,210,0.5)');
+  // arms
+  px(-11,-30,3,20,PAL.figBody);px(8,-30,3,20,PAL.figBody);
+  // Flashlight/radio in right hand
+  px(8,-14,3,5,'rgba(80,100,120,0.7)');
+  ctx.restore();
+}
+
 function drawThomas(W,H){
   const lY=H*0.71;
-  const sway=Math.sin(sceneState.t*0.35)*2*(1+sceneState.glitchLevel*2);
-  const tx=Math.round(W*0.63+sway),ty=lY-8;
+  const t=sceneState.t;
+  // Thomas position: 0=on ledge edge, 1=stepped back 30px
+  const edgeOffset=sceneState.thomasEdgeDist*30;
+  const sway=Math.sin(t*0.35)*2*(1+sceneState.glitchLevel*2)*(1-sceneState.thomasEdgeDist*0.7);
+  const tx=Math.round(W*0.63+sway+edgeOffset);
+  const ty=lY-8;
 
-  // Glow aura
-  const grd=ctx.createRadialGradient(tx,ty-30,0,tx,ty-30,45);
-  grd.addColorStop(0,'rgba(100,120,180,0.06)');
-  grd.addColorStop(1,'transparent');
-  ctx.fillStyle=grd;ctx.fillRect(tx-50,ty-80,100,100);
+  // Glow — stronger when trust is high
+  const trust=G.reliability/100;
+  const glowA=0.04+trust*0.06;
+  const grd=ctx.createRadialGradient(tx,ty-30,0,tx,ty-30,50);
+  grd.addColorStop(0,`rgba(100,120,180,${glowA})`);grd.addColorStop(1,'transparent');
+  ctx.fillStyle=grd;ctx.fillRect(tx-55,ty-85,110,110);
 
-  // Shadow on ledge
   px(tx-10,ty,22,3,'rgba(0,0,0,0.45)');
 
-  // Legs (pixel art silhouette)
-  px(tx-6,ty-2,5,18,PAL.figBody); // left leg
-  px(tx+2,ty-2,5,18,PAL.figBody); // right leg
-  px(tx-6,ty+14,5,2,PAL.figEdge); // shoe left
-  px(tx+2,ty+14,5,2,PAL.figEdge); // shoe right
+  // Legs
+  px(tx-6,ty-2,5,18,PAL.figBody);px(tx+2,ty-2,5,18,PAL.figBody);
+  px(tx-6,ty+14,5,2,PAL.figEdge);px(tx+2,ty+14,5,2,PAL.figEdge);
 
-  // Torso — coat
+  // Torso
   px(tx-9,ty-36,18,34,PAL.figBody);
-  // coat edge detail
-  px(tx-9,ty-36,1,34,'rgba(70,78,110,0.5)');
-  px(tx+8,ty-36,1,34,'rgba(50,58,90,0.4)');
-  // coat lapel
+  px(tx-9,ty-36,1,34,'rgba(70,78,110,0.5)');px(tx+8,ty-36,1,34,'rgba(50,58,90,0.4)');
   px(tx-4,ty-36,8,6,'rgba(20,20,34,0.9)');
 
-  // Head
+  // Head — turn indicator: if thomasLooking, draw face toward left (Chen's side)
   px(tx-6,ty-52,13,14,PAL.figBody);
-  px(tx-6,ty-52,13,1,'rgba(70,78,100,0.6)'); // top highlight
-
-  // Hair (pixel detail)
+  px(tx-6,ty-52,13,1,'rgba(70,78,100,0.6)');
   px(tx-5,ty-52,11,3,'rgba(30,30,48,0.9)');
 
-  // Face — just two white pixel eyes
   if(sceneState.scene!=='fractured'){
-    px(tx-3,ty-46,2,2,'rgba(200,200,220,0.4)');
-    px(tx+2,ty-46,2,2,'rgba(200,200,220,0.4)');
+    const eyeOffX=sceneState.thomasLooking?-2:0;
+    px(tx-3+eyeOffX,ty-46,2,2,'rgba(200,200,220,0.45)');
+    px(tx+2+eyeOffX,ty-46,2,2,'rgba(200,200,220,0.45)');
   }
 
-  // Arms — slightly out, coat silhouette
-  px(tx-13,ty-34,4,22,PAL.figBody); // left arm
-  px(tx+10,ty-34,4,22,PAL.figBody); // right arm
-  px(tx-13,ty-14,4,2,PAL.figEdge); // left hand
-  px(tx+10,ty-14,4,2,PAL.figEdge); // right hand
-
-  // Scarf / jacket collar detail
+  px(tx-13,ty-34,4,22,PAL.figBody);px(tx+10,ty-34,4,22,PAL.figBody);
+  px(tx-13,ty-14,4,2,PAL.figEdge);px(tx+10,ty-14,4,2,PAL.figEdge);
   px(tx-4,ty-38,9,4,'rgba(80,88,120,0.3)');
 
-  // Rain drip on Thomas if raining
-  if(sceneState.rain>0.4&&Math.sin(sceneState.t*3)>0.8){
+  // Rain drip
+  if(sceneState.rain>0.4&&Math.sin(t*3)>0.8)
     px(tx+2,ty-52,1,Math.floor(sceneState.rain*20),`rgba(100,130,180,${sceneState.rain*0.4})`);
-  }
 }
 
 function drawRain(W,H){
-  const t=sceneState.t;
   ctx.save();
   for(const p of rainParticles){
-    p.y+=p.vy*sceneState.rain*2;
-    p.x+=p.vx*sceneState.rain;
+    p.y+=p.vy*sceneState.rain*2;p.x+=p.vx*sceneState.rain;
     if(p.y>H){p.y=-10;p.x=Math.random()*W;}
     if(p.x>W) p.x=0; if(p.x<0) p.x=W;
     ctx.strokeStyle=`rgba(120,150,200,${p.alpha*sceneState.rain})`;
-    ctx.lineWidth=0.5;
-    ctx.beginPath();
-    ctx.moveTo(p.x,p.y);
-    ctx.lineTo(p.x+p.vx*p.len*0.2,p.y+p.len*sceneState.rain);
+    ctx.lineWidth=0.5;ctx.beginPath();
+    ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+p.vx*p.len*0.2,p.y+p.len*sceneState.rain);
     ctx.stroke();
   }
-  ctx.restore();
-  // Splashes on ledge
   const lY=H*0.71+4;
   if(sceneState.rain>0.5){
     for(let i=0;i<3;i++){
-      const sx=Math.sin(t*5+i*2)*W*0.3+W*0.3;
-      ctx.strokeStyle=`rgba(100,130,180,${sceneState.rain*0.2})`;
-      ctx.lineWidth=0.5;
-      ctx.beginPath();
-      ctx.arc(sx,lY,2+Math.sin(t*4+i)*1,0,Math.PI);
-      ctx.stroke();
+      const sx=Math.sin(sceneState.t*5+i*2)*W*0.3+W*0.3;
+      ctx.strokeStyle=`rgba(100,130,180,${sceneState.rain*0.2})`;ctx.lineWidth=0.5;
+      ctx.beginPath();ctx.arc(sx,lY,2+Math.sin(sceneState.t*4+i)*1,0,Math.PI);ctx.stroke();
     }
   }
+  ctx.restore();
 }
 
 function drawBloom(W,H){
-  // Ambient city glow near horizon
   const bloomY=H*0.68;
   const bloom=ctx.createLinearGradient(0,bloomY-20,0,bloomY+30);
   bloom.addColorStop(0,'transparent');
-  bloom.addColorStop(0.5,`rgba(80,60,30,${0.06+sceneState.rain*0.04})`);
+  bloom.addColorStop(0.5,`rgba(80,60,30,${0.05+sceneState.rain*0.04})`);
   bloom.addColorStop(1,'transparent');
-  ctx.fillStyle=bloom;
-  ctx.fillRect(0,bloomY-20,W,50);
-
-  // Emergency light flicker (far building, low reliability)
+  ctx.fillStyle=bloom;ctx.fillRect(0,bloomY-20,W,50);
   if(sceneState.glitchLevel>0.2){
     const fl=Math.sin(sceneState.t*8)>0.7;
     if(fl){
       const rg=ctx.createRadialGradient(W*0.3,H*0.5,0,W*0.3,H*0.5,60);
-      rg.addColorStop(0,`rgba(200,60,60,${sceneState.glitchLevel*0.12})`);
-      rg.addColorStop(1,'transparent');
+      rg.addColorStop(0,`rgba(200,60,60,${sceneState.glitchLevel*0.12})`);rg.addColorStop(1,'transparent');
       ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);
     }
   }
@@ -1079,23 +1137,23 @@ function drawGlitch(W,H){
   const lvl=sceneState.glitchLevel;
   const n=Math.floor(lvl*6);
   for(let i=0;i<n;i++){
-    const y=Math.random()*H;
-    const sh=1+Math.random()*6;
-    const off=(-30+Math.random()*60)*lvl;
-    ctx.save();
-    try{ctx.drawImage(canvas,0,y,W,sh,off,y,W,sh);}catch(e){}
-    ctx.restore();
-    if(Math.random()<0.4){
-      ctx.fillStyle=`rgba(180,80,80,${Math.random()*0.04*lvl})`;
-      ctx.fillRect(0,y,W,sh);
-    }
+    const y=Math.random()*H,sh=1+Math.random()*6,off=(-30+Math.random()*60)*lvl;
+    ctx.save();try{ctx.drawImage(canvas,0,y,W,sh,off,y,W,sh);}catch(e){}ctx.restore();
+    if(Math.random()<0.4){ctx.fillStyle=`rgba(180,80,80,${Math.random()*0.04*lvl})`;ctx.fillRect(0,y,W,sh);}
   }
-  // Scan artifact
-  if(Math.random()<lvl*0.08){
-    ctx.fillStyle=`rgba(100,120,200,${Math.random()*0.025})`;
-    ctx.fillRect(0,Math.random()*H,W,Math.random()*16+2);
-  }
+  if(Math.random()<lvl*0.08){ctx.fillStyle=`rgba(100,120,200,${Math.random()*0.025})`;ctx.fillRect(0,Math.random()*H,W,Math.random()*16+2);}
 }
+
+// Scene state helpers — called from story nodes
+function setSceneChapter(idx){
+  sceneState.chapterIdx=idx;
+  const el=document.getElementById('scene-chapter-label');
+  if(el) el.textContent=`CH. 0${idx+1}`;
+}
+function setThomasEdge(dist){sceneState.thomasEdgeDist=Math.max(0,Math.min(1,dist));}
+function setChenVisible(v,pos){sceneState.chenVisible=v;if(pos!==undefined)sceneState.chenPos=pos;}
+function setThomasLooking(v){sceneState.thomasLooking=v;}
+function setSpotlight(v,x){sceneState.spotActive=v;if(x!==undefined)sceneState.spotX=x;}
 
 // Title screen procedural art
 function initTitleCanvas(){
@@ -1109,29 +1167,25 @@ function initTitleCanvas(){
     requestAnimationFrame(titleLoop);
     tt+=0.005;
     tc2.clearRect(0,0,tc.width,tc.height);
-    // Subtle grid
     tc2.strokeStyle='rgba(40,40,60,0.3)';tc2.lineWidth=0.5;
     const gs=60;
     for(let x=0;x<tc.width;x+=gs){tc2.beginPath();tc2.moveTo(x,0);tc2.lineTo(x,tc.height);tc2.stroke();}
     for(let y=0;y<tc.height;y+=gs){tc2.beginPath();tc2.moveTo(0,y);tc2.lineTo(tc.width,y);tc2.stroke();}
-    // Slow moving highlight sweep
     const sweep=(Math.sin(tt*0.3)*0.5+0.5)*tc.width;
     const sg=tc2.createLinearGradient(sweep-200,0,sweep+200,0);
     sg.addColorStop(0,'transparent');sg.addColorStop(0.5,'rgba(200,168,122,0.025)');sg.addColorStop(1,'transparent');
     tc2.fillStyle=sg;tc2.fillRect(0,0,tc.width,tc.height);
-    // City silhouette at bottom
     const by=tc.height*0.75;
     const bldg=[[0,60,120],[65,40,90],[110,55,155],[170,35,80],[210,65,195],[280,48,140],[333,85,230],[423,40,115],[468,58,170],[531,72,200],[608,38,100],[651,52,148],[708,40,125],[753,38,100],[796,62,182]];
     for(const [bx,bw,bh] of bldg){
-      tc2.fillStyle='rgba(8,8,14,0.8)';
-      tc2.fillRect(bx,by-bh,bw,bh+tc.height);
+      tc2.fillStyle='rgba(8,8,14,0.8)';tc2.fillRect(bx,by-bh,bw,bh+tc.height);
     }
-    // Scan line
     const sl=(tt*100)%tc.height;
     tc2.fillStyle='rgba(120,140,200,0.03)';tc2.fillRect(0,sl,tc.width,2);
   }
   titleLoop();
 }
+
 
 // ═══════════════════════════════════════════════════════
 // GAME ENGINE
@@ -1162,6 +1216,78 @@ function updateTime(){
   document.getElementById('time-display').textContent=h.toString().padStart(2,'0')+':'+m.toString().padStart(2,'0');
 }
 
+// ═══════════════════════════════════════════════════════
+// VOICE SYSTEM — Web Speech API
+// ═══════════════════════════════════════════════════════
+let voiceEnabled=true;
+let synth=window.speechSynthesis;
+let voices=[];
+let voiceMap={thomas:null,chen:null,system:null,radio:null};
+
+function initVoices(){
+  if(!synth) return;
+  const load=()=>{
+    voices=synth.getVoices();
+    // Thomas: slower, deeper, British or male preferred
+    voiceMap.thomas=voices.find(v=>v.lang.startsWith('en')&&v.name.toLowerCase().includes('daniel'))
+      ||voices.find(v=>v.lang.startsWith('en-GB'))
+      ||voices.find(v=>v.lang.startsWith('en')&&!v.name.toLowerCase().includes('samantha'))
+      ||voices[0];
+    // Chen: slightly higher, clear
+    voiceMap.chen=voices.find(v=>v.name.toLowerCase().includes('samantha'))
+      ||voices.find(v=>v.lang==='en-US'&&v.name.toLowerCase().includes('female'))
+      ||voices.find(v=>v.lang.startsWith('en'))
+      ||voices[0];
+    // System: robotic — use any US voice at very low pitch
+    voiceMap.system=voiceMap.chen;
+    voiceMap.radio=voiceMap.thomas;
+  };
+  if(voices.length) load();
+  synth.onvoiceschanged=load;
+}
+
+function speak(text,speaker,cls){
+  if(!voiceEnabled||!synth||!audioEnabled) return;
+  // Don't speak internal/memory lines — they're thoughts
+  if(cls&&(cls.includes('memory')||cls.includes('crack')||cls.includes('doubt'))) return;
+
+  synth.cancel();
+  const utt=new SpeechSynthesisUtterance();
+  utt.text=text.replace(/^\(.*?\)$/,'').trim(); // strip action descriptions in parens
+  if(!utt.text) return;
+
+  switch(speaker){
+    case 'THOMAS':
+      utt.voice=voiceMap.thomas;
+      utt.rate=0.82;utt.pitch=0.85;utt.volume=0.75;
+      break;
+    case 'DR. CHEN':
+      utt.voice=voiceMap.chen;
+      utt.rate=0.92;utt.pitch=1.05;utt.volume=0.7;
+      break;
+    case 'RADIO':
+      utt.voice=voiceMap.radio;
+      utt.rate=1.0;utt.pitch=1.1;utt.volume=0.55;
+      break;
+    case '[SYSTEM]':case '[INTERNAL]':
+      utt.voice=voiceMap.system;
+      utt.rate=0.78;utt.pitch=0.6;utt.volume=0.5;
+      break;
+    default:
+      utt.rate=0.9;utt.pitch=1.0;utt.volume=0.6;
+  }
+  // Clamp text length — long internal monologues get truncated for speech
+  if(utt.text.length>120) utt.text=utt.text.slice(0,120)+'...';
+  synth.speak(utt);
+}
+
+function toggleVoice(){
+  voiceEnabled=!voiceEnabled;
+  if(!voiceEnabled&&synth) synth.cancel();
+  const btn=document.getElementById('voice-btn');
+  if(btn) btn.textContent=voiceEnabled?'🎙 ON':'🎙 OFF';
+}
+
 function addMessage(speaker,text,cls=''){
   return new Promise(resolve=>{
     const dlg=document.getElementById('dialogue');
@@ -1171,12 +1297,20 @@ function addMessage(speaker,text,cls=''){
     const txt=document.createElement('div');txt.className='msg-text';
     msg.appendChild(spk);msg.appendChild(txt);
     dlg.appendChild(msg);dlg.scrollTop=dlg.scrollHeight;
+    // Speak the line
+    speak(text,speaker,cls);
+    // Add speaking indicator while text types
+    msg.classList.add('msg-speaking');
     let i=0;
     const speed=cls.includes('system')||cls.includes('memory')||cls.includes('crack')?22:17;
     const timer=setInterval(()=>{
       txt.textContent=text.slice(0,i);i++;
       dlg.scrollTop=dlg.scrollHeight;
-      if(i>text.length){clearInterval(timer);setTimeout(resolve,160);}
+      if(i>text.length){
+        clearInterval(timer);
+        msg.classList.remove('msg-speaking');
+        setTimeout(resolve,160);
+      }
     },speed);
   });
 }
@@ -1558,6 +1692,9 @@ const STORY={
   intro:{
     setup:async()=>{
       setChapter('01 — First Contact');
+      setSceneChapter(0);
+      setChenVisible(true,0.12);
+      setSpotlight(true,0.65);
       setAtmosphere('Harmon Tower — Roof Access, Floor 34','The city looks wrong from up here. Like a circuit board no one finished.');
       addEvidence('case_file_7_19');
       addEvidence('chen_id_badge');
@@ -1632,7 +1769,7 @@ const STORY={
 
   // ─── CHAPTER 2: THE CONTRADICTION ───────────────────
   thomas_file_moment:{
-    setup:async()=>{setChapter('02 — The Contradiction');},
+    setup:async()=>{setChapter('02 — The Contradiction');setSceneChapter(1);},
     messages:[
       {speaker:'THOMAS',text:'I was a data integrity specialist. That means I found errors. Inconsistencies between what data said and what was real.',cls:'npc',pause:600},
       {speaker:'THOMAS',text:'Seven months ago, I found something in Vantex\'s personnel system.',cls:'npc',pause:500},
@@ -1750,7 +1887,7 @@ const STORY={
 
   // ─── CHAPTER 3: THE FILE ────────────────────────────
   thomas_on_denial:{
-    setup:async()=>{setChapter('03 — The File');triggerGlitch(0.5);},
+    setup:async()=>{setChapter('03 — The File');setSceneChapter(2);triggerGlitch(0.5);},
     messages:[
       {speaker:'THOMAS',text:'Of course you do. That\'s what you\'re supposed to say.',cls:'npc',pause:500},
       {speaker:'THOMAS',text:'Let me ask you something, Dr. Chen. Have you ever signed a document without reading it?',cls:'npc',pause:600},
@@ -1948,6 +2085,7 @@ const STORY={
   thomas_system_speech:{
     setup:async()=>{
       setChapter('04 — The System');
+      setSceneChapter(3);
       setAtmosphere('Harmon Tower — Roof Access','The city flickers. Or maybe that\'s you.');
       addEvidence('elisa_park_note');
       addEvidence('seventeen_list');
@@ -2058,7 +2196,9 @@ const STORY={
   thomas_final_approach:{
     setup:async()=>{
       setChapter('05 — Signal Lost');
+      setSceneChapter(4);
       setAtmosphere('Harmon Tower — Roof Edge','He turns to face you fully for the first time. His eyes are completely calm.');
+      setThomasLooking(true);
       G.reliability-=5;updateReliabilityUI();
       playMemoryChime(6);
       await delay(700);
@@ -2071,95 +2211,240 @@ const STORY={
     ],
     choices:()=>{
       const choices=[
-        {text:"Yes. I believe you found something real. And I'm scared of what that means.",reliability:5,flag:'believes_thomas',next:'ending_believe'},
-        {text:"I believe you believe it. That's not the same thing, but it matters.",reliability:0,flag:'partial_belief',next:'ending_partial'},
-        {text:"I don't know what I believe anymore. And that's new for me.",reliability:0,flag:'uncertainty',next:'ending_uncertain'},
+        {text:"Yes. I believe you found something real. And I'm scared of what that means.",reliability:5,flag:'believes_thomas',next:'ending_router'},
+        {text:"I believe you believe it. That's not the same thing, but it matters.",reliability:0,flag:'partial_belief',next:'ending_router'},
+        {text:"I don't know what I believe anymore. And that's new for me.",reliability:0,flag:'uncertainty',next:'ending_router'},
       ];
       if(G.reliability<40){
         choices.push({
           text:"...(You can't answer. Something in your own memory won't hold still.)",
-          reliability:-10,flag:'fractured',next:'ending_fractured',dangerous:true
+          reliability:-10,flag:'fractured',next:'ending_router',dangerous:true
         });
       }
       return choices;
     }
   },
 
-  // ─── ENDINGS ────────────────────────────────────────
-  ending_believe:{
+  // ─── ENDING ROUTER — picks ending from accumulated flags ───
+  ending_router:{
+    setup:async()=>{
+      // Determine ending from the combination of flags + reliability
+      const f=G.flags, r=G.reliability;
+      let ending;
+
+      if(f.fractured && r<35){
+        ending='ending_lost';
+      } else if(f.grabbed_thomas && !f.believes_thomas){
+        ending='ending_force';
+      } else if(f.grabbed_thomas && f.believes_thomas){
+        ending='ending_reckless_believer';
+      } else if(f.sat_on_ledge && f.believes_thomas){
+        ending='ending_witness_together';
+      } else if(f.believes_thomas && f.used_elisa_note && f.confronted_batch){
+        ending='ending_evidence_chain';
+      } else if(f.believes_thomas){
+        ending='ending_witness';
+      } else if(f.partial_belief && f.radio_disclosed){
+        ending='ending_operator_burned';
+      } else if(f.partial_belief || f.strategic_empathy){
+        ending='ending_operator';
+      } else if(f.uncertainty || f.buys_time){
+        ending='ending_static';
+      } else {
+        ending='ending_static';
+      }
+      await runNode(ending);
+    },
+    messages:[]
+  },
+
+  // ─── ENDING 1: WITNESS ──────────────────────────────
+  ending_witness:{
     setup:async()=>{
       G.endingType='WITNESS';
       setAtmosphere('Harmon Tower — Roof Edge','He steps back from the edge. One foot, then two.');
-      playMemoryChime(0);
+      setThomasEdge(0.6);playMemoryChime(0);
     },
     messages:[
       {speaker:'THOMAS',text:'Okay.',cls:'npc',pause:600},
       {speaker:'THOMAS',text:'Okay.',cls:'npc',pause:800},
-      {speaker:'THOMAS',text:'You know what I\'m going to do now?',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'I\'m going to step back. Not because you convinced me I was wrong. Because you\'re the first person who didn\'t try to.',cls:'npc',pause:1000},
-      {speaker:'DR. CHEN',text:'(He walks toward you. Hands open. You reach out.)',cls:'system-msg'},
+      {speaker:'THOMAS',text:'You\'re the first person who didn\'t try to convince me I was wrong.',cls:'npc',pause:700},
       {speaker:'DR. CHEN',text:'I don\'t know what happens next. But it happens off this roof.',cls:'player',pause:600},
       {speaker:'[SYSTEM]',text:'Subject secured. Case 7-19 closed.',cls:'system-msg',pause:500},
       {speaker:'[INTERNAL]',text:'Three weeks later, you request your own Division 7 personnel file.',cls:'system-msg',pause:500},
       {speaker:'[INTERNAL]',text:'The system shows no record of Thomas Kael.',cls:'system-msg',pause:600},
-      {speaker:'[INTERNAL]',text:'It shows no record of Case 7-19.',cls:'system-msg',pause:700},
       {speaker:'[INTERNAL]',text:'Your March 14th batch — forty-seven signatures — is gone.',cls:'system-msg highlight',pause:1000},
     ],
     auto:'end_screen_trigger',autoDelay:1000,
   },
 
-  ending_partial:{
+  // ─── ENDING 2: WITNESS TOGETHER (sat on ledge + believed) ───
+  ending_witness_together:{
+    setup:async()=>{
+      G.endingType='WITNESS_TOGETHER';
+      setAtmosphere('Harmon Tower — Roof Edge','You both sit on the ledge. Below, the city does not notice.');
+      setThomasEdge(0.5);setChenVisible(true,0.55);playMemoryChime(0);
+    },
+    messages:[
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:900},
+      {speaker:'THOMAS',text:'You know what\'s strange? I feel calmer now than I have in seven months.',cls:'npc',pause:700},
+      {speaker:'DR. CHEN',text:'That\'s the first honest thing either of us has said tonight.',cls:'player',pause:600},
+      {speaker:'THOMAS',text:'Ha.',cls:'npc',pause:400},
+      {speaker:'DR. CHEN',text:'Come down with me. We go somewhere public. I buy you coffee. We figure out what\'s survivable.',cls:'player',pause:700},
+      {speaker:'THOMAS',text:'You\'re not supposed to make personal contact with subjects.',cls:'npc',pause:500},
+      {speaker:'DR. CHEN',text:'I\'m also not supposed to sit on the ledge.',cls:'player'},
+      {speaker:'[SYSTEM]',text:'Subject secured. Case 7-19 closed.',cls:'system-msg',pause:500},
+      {speaker:'[INTERNAL]',text:'You meet him twice more. Both times off the record.',cls:'system-msg',pause:500},
+      {speaker:'[INTERNAL]',text:'The third journalist publishes. Seven months later.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'Division 7 is placed under external review.',cls:'system-msg highlight',pause:800},
+      {speaker:'[INTERNAL]',text:'Your name is not in the article. You don\'t know if that\'s good.',cls:'system-msg',pause:1000},
+    ],
+    auto:'end_screen_trigger',autoDelay:1000,
+  },
+
+  // ─── ENDING 3: EVIDENCE CHAIN (believed + read docs + confronted batch) ───
+  ending_evidence_chain:{
+    setup:async()=>{
+      G.endingType='EVIDENCE_CHAIN';
+      setAtmosphere('Harmon Tower — Roof Edge','He comes down. Not because he trusts the system. Because you showed him you don\'t either.');
+      setThomasEdge(0.8);playMemoryChime(2);
+    },
+    messages:[
+      {speaker:'THOMAS',text:'You actually looked at the log.',cls:'npc',pause:600},
+      {speaker:'DR. CHEN',text:'Three seconds on document thirty-one. I looked.',cls:'player',pause:600},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'No one else did that.',cls:'npc',pause:500},
+      {speaker:'DR. CHEN',text:'Come down. Whatever\'s in those files — it needs you alive to matter.',cls:'player'},
+      {speaker:'[SYSTEM]',text:'Subject secured. Case 7-19 pending internal review.',cls:'system-msg',pause:500},
+      {speaker:'[INTERNAL]',text:'You submit a formal report the next morning.',cls:'system-msg',pause:500},
+      {speaker:'[INTERNAL]',text:'The report cites the batch log, the Vantex record, and Elisa Park\'s correspondence.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'Your supervisor calls it "circumstantial."',cls:'system-msg',pause:500},
+      {speaker:'[INTERNAL]',text:'Your supervisor\'s supervisor calls you into a meeting.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'You bring a copy of everything. Physical. In a bag.',cls:'system-msg highlight',pause:1000},
+    ],
+    auto:'end_screen_trigger',autoDelay:1000,
+  },
+
+  // ─── ENDING 4: OPERATOR ─────────────────────────────
+  ending_operator:{
     setup:async()=>{
       G.endingType='OPERATOR';
       setAtmosphere('Harmon Tower — Roof Edge','He studies you. A long, careful look.');
+      setThomasEdge(0.4);
     },
     messages:[
       {speaker:'THOMAS',text:'That\'s a trained answer.',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'But you know what? It\'s more honest than "yes."',cls:'npc',pause:400},
-      {speaker:'THOMAS',text:'The "yes" people scare me. They believe too fast. They can be moved too fast.',cls:'npc',pause:700},
-      {speaker:'THOMAS',text:'You\'re more careful than that.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'But you know what? It\'s more honest than yes.',cls:'npc',pause:500},
       {speaker:'DR. CHEN',text:'Come down with me. If there\'s something here, we build it properly.',cls:'player',pause:600},
-      {speaker:'THOMAS',text:'I don\'t have anywhere to go. You know that, right? This was the last option on the list.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'I don\'t have anywhere to go. This was the last option on the list.',cls:'npc',pause:700},
       {speaker:'DR. CHEN',text:'Then tonight you add one more.',cls:'player'},
       {speaker:'[SYSTEM]',text:'Subject secured. Case 7-19 pending review.',cls:'system-msg',pause:600},
       {speaker:'[INTERNAL]',text:'The review takes eleven months.',cls:'system-msg',pause:400},
-      {speaker:'[INTERNAL]',text:'Elisa Park is released from Brackenmore Psychiatric.',cls:'system-msg',pause:500},
-      {speaker:'[INTERNAL]',text:'Thomas Kael\'s testimony is sealed under Clause 9, National Security provisions.',cls:'system-msg',pause:500},
+      {speaker:'[INTERNAL]',text:'Thomas Kael\'s testimony is sealed under Clause 9.',cls:'system-msg',pause:500},
       {speaker:'[INTERNAL]',text:'You are reassigned to a different division.',cls:'system-msg highlight',pause:800},
       {speaker:'[INTERNAL]',text:'You do not know if that means you were right. Or in the way.',cls:'system-msg',pause:1000},
     ],
     auto:'end_screen_trigger',autoDelay:1000,
   },
 
-  ending_uncertain:{
+  // ─── ENDING 5: OPERATOR BURNED (operator + disclosed to radio) ───
+  ending_operator_burned:{
     setup:async()=>{
-      G.endingType='STATIC';
-      setAtmosphere('Harmon Tower — Roof Edge','The city is very quiet.');
+      G.endingType='OPERATOR_BURNED';
+      setAtmosphere('Harmon Tower — Roof Edge','He comes down. And then something else happens.');
+      setThomasEdge(0.4);triggerGlitch(0.3);
     },
     messages:[
-      {speaker:'THOMAS',text:'That\'s the first crack.',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'The first time you noticed the gap between what the system says and what you remember.',cls:'npc',pause:700},
-      {speaker:'THOMAS',text:'Once you see it, you can\'t unsee it.',cls:'npc',pause:600},
-      {speaker:'THOMAS',text:'I\'m sorry.',cls:'npc',pause:800},
-      {speaker:'DR. CHEN',text:'Don\'t be. Come down. We can both be uncertain on the ground.',cls:'player',pause:600},
-      {speaker:'THOMAS',text:'Ha.',cls:'npc',pause:400},
-      {speaker:'THOMAS',text:'Ha.',cls:'npc',pause:600},
+      {speaker:'DR. CHEN',text:'Come down. We do this by the book.',cls:'player',pause:600},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'Okay. By the book.',cls:'npc'},
       {speaker:'[SYSTEM]',text:'Subject secured. Case 7-19 closed.',cls:'system-msg',pause:500},
-      {speaker:'[INTERNAL]',text:'You sleep badly for months.',cls:'system-msg',pause:500},
-      {speaker:'[INTERNAL]',text:'You start keeping your own records. A notebook. Handwritten. Nothing digital.',cls:'system-msg',pause:600},
-      {speaker:'[INTERNAL]',text:'You don\'t know what you\'re protecting it from.',cls:'system-msg',pause:500},
-      {speaker:'[INTERNAL]',text:'Or who.',cls:'system-msg highlight',pause:1000},
+      {speaker:'[INTERNAL]',text:'Two days later, you receive a Wellness Check notice.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'Filed by your supervisor. Citing "erratic field behavior."',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'Citing your radio call. The one where you mentioned the signature.',cls:'system-msg',pause:700},
+      {speaker:'[INTERNAL]',text:'You recognize the mechanism now.',cls:'system-msg',pause:500},
+      {speaker:'[INTERNAL]',text:'You recognized it too late.',cls:'system-msg highlight',pause:1000},
     ],
     auto:'end_screen_trigger',autoDelay:1000,
   },
 
-  ending_fractured:{
+  // ─── ENDING 6: STATIC ───────────────────────────────
+  ending_static:{
+    setup:async()=>{
+      G.endingType='STATIC';
+      setAtmosphere('Harmon Tower — Roof Edge','The city is very quiet.');
+      setThomasEdge(0.3);
+    },
+    messages:[
+      {speaker:'THOMAS',text:'That\'s the first crack.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'Once you see the gap between what the system says and what you remember — you can\'t unsee it.',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'I\'m sorry.',cls:'npc',pause:800},
+      {speaker:'DR. CHEN',text:'Don\'t be. Come down. We can both be uncertain on the ground.',cls:'player'},
+      {speaker:'THOMAS',text:'Ha.',cls:'npc',pause:600},
+      {speaker:'[SYSTEM]',text:'Subject secured. Case 7-19 closed.',cls:'system-msg',pause:500},
+      {speaker:'[INTERNAL]',text:'You sleep badly for months.',cls:'system-msg',pause:500},
+      {speaker:'[INTERNAL]',text:'You start keeping your own records. A notebook. Nothing digital.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'You don\'t know what you\'re protecting it from.',cls:'system-msg highlight',pause:1000},
+    ],
+    auto:'end_screen_trigger',autoDelay:1000,
+  },
+
+  // ─── ENDING 7: RECKLESS BELIEVER (grabbed + believed) ───
+  ending_reckless_believer:{
+    setup:async()=>{
+      G.endingType='RECKLESS';
+      setAtmosphere('Harmon Tower — Roof Edge','Your hand is still shaking. His wrist is red where you grabbed it.');
+      triggerGlitch(0.4);setThomasEdge(0.7);
+    },
+    messages:[
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:1000},
+      {speaker:'THOMAS',text:'You believe me.',cls:'npc',pause:400},
+      {speaker:'DR. CHEN',text:'Yes.',cls:'player'},
+      {speaker:'THOMAS',text:'And you still grabbed me.',cls:'npc',pause:500},
+      {speaker:'DR. CHEN',text:'...',cls:'player',pause:500},
+      {speaker:'THOMAS',text:'That\'s what belief looks like from the outside, I guess.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'Terrifying.',cls:'npc',pause:800},
+      {speaker:'DR. CHEN',text:'Come down. I\'m sorry. Come down.',cls:'player'},
+      {speaker:'[SYSTEM]',text:'Subject secured. Case 7-19 closed.',cls:'system-msg',pause:500},
+      {speaker:'[INTERNAL]',text:'You are suspended for four weeks. Reckless endangerment of subject.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'During the suspension, you make three calls. All to journalists.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'One calls back.',cls:'system-msg highlight',pause:1000},
+    ],
+    auto:'end_screen_trigger',autoDelay:1000,
+  },
+
+  // ─── ENDING 8: FORCE (grabbed + didn't believe) ─────
+  ending_force:{
+    setup:async()=>{
+      G.endingType='FORCE';
+      setAtmosphere('Harmon Tower — Roof Edge','He is back on the roof. You both are.');
+      triggerGlitch(0.6);triggerRedFlash();
+      G.reliability=Math.max(10,G.reliability);updateReliabilityUI();
+    },
+    messages:[
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'You don\'t believe a word I said.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'And you still tried to grab me.',cls:'npc',pause:500},
+      {speaker:'DR. CHEN',text:'I was trying to save you.',cls:'player'},
+      {speaker:'THOMAS',text:'From what?',cls:'npc',pause:700},
+      {speaker:'[SYSTEM]',text:'Subject secured. Case 7-19 closed.',cls:'system-msg',pause:500},
+      {speaker:'[INTERNAL]',text:'He agrees to come down. Not because you persuaded him. Because you frightened him.',cls:'system-msg',pause:700},
+      {speaker:'[INTERNAL]',text:'In his debrief, he says: "She didn\'t listen."',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'The debrief is filed. You never see it.',cls:'system-msg',pause:500},
+      {speaker:'[INTERNAL]',text:'Elisa Park remains at Brackenmore.',cls:'system-msg highlight',pause:1000},
+    ],
+    auto:'end_screen_trigger',autoDelay:1000,
+  },
+
+  // ─── ENDING 9: SIGNAL LOST ──────────────────────────
+  ending_lost:{
     setup:async()=>{
       G.endingType='LOST';
       G.reliability=Math.max(5,G.reliability);updateReliabilityUI();
       triggerGlitch(1.0);triggerRedFlash();playRevealStrike();
       sceneState.scene='fractured';
       setAtmosphere('???','The location data is unavailable. The timestamps are wrong.');
+      setThomasEdge(0);
       await delay(700);
     },
     messages:[
@@ -2170,7 +2455,6 @@ const STORY={
       {speaker:'[INTERNAL]',text:'You reach for your Division 7 ID badge.',cls:'system-msg',pause:500},
       {speaker:'[INTERNAL]',text:'The name on it is correct.',cls:'system-msg',pause:400},
       {speaker:'[INTERNAL]',text:'The photograph is not you.',cls:'system-msg highlight',pause:1000},
-      {speaker:'THOMAS',text:'Hey.',cls:'npc',pause:400},
       {speaker:'THOMAS',text:'Hey — step back from the edge.',cls:'npc',pause:500},
       {speaker:'[SYSTEM]',text:'Signal lost.',cls:'system-msg',pause:800},
       {speaker:'[SYSTEM]',text:'Signal lost.',cls:'system-msg',pause:500},
@@ -2186,10 +2470,15 @@ const STORY={
 };
 
 const endingData={
-  WITNESS:{title:'WITNESS',subtitle:'You believed him. You brought him down. You lost the records. Somewhere in a batch of forty-seven signatures, you signed something. You still don\'t know what.',tagline:'"The system shows what the system shows."'},
-  OPERATOR:{title:'OPERATOR',subtitle:'You kept your distance. It was the professional thing. It may have been the right thing. You will never be certain which institutions you were protecting.',tagline:'"Careful people make the best instruments."'},
-  STATIC:{title:'STATIC',subtitle:'You didn\'t answer him. You answered yourself. The uncertainty you admitted to him was the first honest thing you\'d felt in months. It cost you nothing. Yet.',tagline:'"Once you see the gap, you can\'t unsee it."'},
-  LOST:{title:'SIGNAL LOST',subtitle:'The photograph was not you. You don\'t know when it changed. You don\'t know if it ever was. Thomas Kael stepped back from the edge that night. You did not.',tagline:'"They didn\'t send you to talk him down."'},
+  WITNESS:{title:'WITNESS',subtitle:'You believed him. You brought him down. Three weeks later the records were gone. Somewhere in a batch of forty-seven, you signed something. You still don\'t know what.',tagline:'"The system shows what the system shows."'},
+  WITNESS_TOGETHER:{title:'SIDE BY SIDE',subtitle:'You sat on the ledge together. You came down together. The article published seven months later. Your name wasn\'t in it. You still don\'t know if that\'s good.',tagline:'"We can both be uncertain on the ground."'},
+  EVIDENCE_CHAIN:{title:'PAPER TRAIL',subtitle:'You read the log. Three seconds on document thirty-one. That was enough. You submitted the report. Your supervisor called it circumstantial. You brought a copy anyway.',tagline:'"Whatever\'s in those files — it needs you alive to matter."'},
+  OPERATOR:{title:'OPERATOR',subtitle:'You kept your distance. It was the professional thing. It may have been the right thing. You were reassigned. You do not know if that means you were right. Or in the way.',tagline:'"Careful people make the best instruments."'},
+  OPERATOR_BURNED:{title:'FLAGGED',subtitle:'You disclosed the signature on the radio. Two days later, a Wellness Check was filed against you. You recognized the mechanism. You recognized it too late.',tagline:'"The system shows what the system shows."'},
+  STATIC:{title:'STATIC',subtitle:'You didn\'t answer him. You answered yourself. The uncertainty cost you nothing. Yet. You started keeping a notebook. You don\'t know what you\'re protecting it from.',tagline:'"Once you see the gap, you can\'t unsee it."'},
+  RECKLESS:{title:'TRUE BELIEVER',subtitle:'You believed him and then you grabbed him. That is what belief looks like from the outside, apparently. You were suspended. During the suspension, one journalist called back.',tagline:'"Terrifying."'},
+  FORCE:{title:'SECURED',subtitle:'He came down not because you persuaded him. Because you frightened him. His debrief says: "She didn\'t listen." You never saw it. Elisa Park remains at Brackenmore.',tagline:'"From what?"'},
+  LOST:{title:'SIGNAL LOST',subtitle:'The photograph was not you. You don\'t know when it changed. Thomas Kael stepped back from the edge that night. You did not.',tagline:'"They didn\'t send you to talk him down."'},
 };
 
 function showEndScreen(){
@@ -2209,6 +2498,7 @@ function showEndScreen(){
 
 function startGame(){
   initAudio();
+  initVoices();
   const title=document.getElementById('title-screen');
   title.style.transition='opacity 1s ease';title.style.opacity='0';
   setTimeout(()=>{
