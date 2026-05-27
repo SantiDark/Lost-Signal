@@ -739,20 +739,523 @@ function toggleAudio(){
 }
 
 // ═══════════════════════════════════════════════════════
-// VISUAL RENDERER — Reactive scene, state-driven
+// VISUAL RENDERER — Environmental scene, no figures
 // ═══════════════════════════════════════════════════════
 let canvas,ctx,sceneState={
   scene:'rooftop',rain:0,glitchLevel:0,t:0,moodShift:0,
-  thomasEdgeDist:0,  // 0=on ledge, 1=walked back
-  chenVisible:false, // Chen figure appears later
-  chenPos:0.15,      // 0..1 left-right
-  thomasLooking:false,// Thomas turned to face Chen
-  chapterIdx:0,
-  clouds:[],
-  spotActive:false,
-  spotX:0.65,
+  chapterIdx:0,clouds:[],
+  // kept for story node calls but unused in render
+  thomasEdgeDist:0,chenVisible:false,chenPos:0.15,
+  thomasLooking:false,spotActive:false,spotX:0.65,
 };
 const rainParticles=[];
+
+const PAL={
+  pipe:'#252535',pipeH:'#303045',
+  ledge:'#22222e',ledgeEdge:'#2e2e40',
+  bldEdge:'#1a1a28',bldMid:'#181824',
+};
+
+// Sky palette per chapter — noticeably brighter than before
+const SKY_MOODS=[
+  // [sky-top, sky-mid, horizon-glow-color, horizon-glow-alpha]
+  ['#0a0d1a','#131828','#3a4878',0.18],   // ch0: cool deep navy
+  ['#080b16','#0f1420','#2e3d6a',0.14],   // ch1: darker blue
+  ['#0b0a18','#130f22','#3a2a6e',0.16],   // ch2: blue-purple
+  ['#0e0a1c','#160d26','#4a2a6e',0.18],   // ch3: heavier violet
+  ['#100818','#160a1e','#5a1a4a',0.20],   // ch4: deep magenta-violet
+  ['#060408','#0a0608','#3a0a0a',0.22],   // ch5: near black + red tinge
+];
+
+function initCanvas(){
+  canvas=document.getElementById('visual-canvas');
+  ctx=canvas.getContext('2d');
+  canvas.width=canvas.offsetWidth;
+  canvas.height=canvas.offsetHeight;
+  for(let i=0;i<100;i++) rainParticles.push({
+    x:Math.random()*canvas.width,y:Math.random()*canvas.height,
+    vy:2.4+Math.random()*2.8,vx:-0.4+Math.random()*0.8,
+    alpha:0.14+Math.random()*0.26,len:8+Math.random()*16,
+  });
+  for(let i=0;i<8;i++) sceneState.clouds.push({
+    x:Math.random(),y:0.04+Math.random()*0.28,
+    w:0.20+Math.random()*0.28,h:0.05+Math.random()*0.07,
+    speed:0.00006+Math.random()*0.0001,
+    alpha:0.06+Math.random()*0.10,
+  });
+  requestAnimationFrame(renderLoop);
+}
+
+function renderLoop(){
+  requestAnimationFrame(renderLoop);
+  sceneState.t+=0.007;
+  for(const c of sceneState.clouds){
+    c.x+=c.speed*(1+sceneState.rain*1.8);
+    if(c.x>1.35) c.x=-0.35;
+  }
+  drawScene();
+}
+
+function px(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),w,h);}
+
+function drawScene(){
+  const W=canvas.width,H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+  const ch=Math.min(sceneState.chapterIdx,SKY_MOODS.length-1);
+  const [s0,s1,hc,ha]=sceneState.scene==='fractured'
+    ?['#060408','#0e060a','#5a0808',0.25]
+    :SKY_MOODS[ch];
+
+  // Sky — three-stop gradient: zenith → mid → horizon
+  const skyG=ctx.createLinearGradient(0,0,0,H*0.78);
+  skyG.addColorStop(0,s0);
+  skyG.addColorStop(0.55,s1);
+  skyG.addColorStop(1,s1);
+  ctx.fillStyle=skyG;ctx.fillRect(0,0,W,H);
+
+  // Horizon city glow — warm haze sitting just above the buildings
+  const hY=H*0.58;
+  const hg=ctx.createLinearGradient(0,hY-40,0,hY+60);
+  hg.addColorStop(0,'transparent');
+  hg.addColorStop(0.45,`${hc}${Math.round(ha*255).toString(16).padStart(2,'0')}`);
+  hg.addColorStop(1,'transparent');
+  ctx.fillStyle=hg;ctx.fillRect(0,hY-40,W,100);
+
+  // Stars
+  const starA=Math.max(0,(1-sceneState.chapterIdx*0.16))*(1-sceneState.rain*0.85);
+  if(starA>0.03) drawStars(W,H,starA);
+
+  // Cloud mass
+  drawClouds(W,H);
+
+  // Atmospheric fog band
+  if(sceneState.rain>0.1||sceneState.chapterIdx>1){
+    const fogA=Math.min(0.35,sceneState.rain*0.22+sceneState.chapterIdx*0.035);
+    const fg=ctx.createLinearGradient(0,H*0.18,0,H*0.68);
+    fg.addColorStop(0,'transparent');
+    fg.addColorStop(0.5,`rgba(8,6,16,${fogA})`);
+    fg.addColorStop(1,'transparent');
+    ctx.fillStyle=fg;ctx.fillRect(0,0,W,H);
+  }
+
+  // City layers — three depth passes
+  drawCityLayer(W,H,0.52,0.28,'rgba(6,6,12,0.82)',true);   // far/hazy
+  drawCityLayer(W,H,0.60,0.55,'rgba(8,8,16,0.90)',false);  // mid
+  drawCityLayer(W,H,0.68,1.00,'rgba(10,10,20,0.97)',false); // near
+
+  // Rooftop floor / ledge
+  drawLedge(W,H);
+
+  // Foreground rooftop details
+  drawRooftopDetails(W,H);
+
+  if(sceneState.rain>0) drawRain(W,H);
+  if(sceneState.glitchLevel>0.05) drawGlitch(W,H);
+
+  drawBloom(W,H);
+
+  // Bottom fade into dialogue area
+  const fade=ctx.createLinearGradient(0,H*0.55,0,H);
+  fade.addColorStop(0,'transparent');fade.addColorStop(1,'#0a0a0b');
+  ctx.fillStyle=fade;ctx.fillRect(0,0,W,H);
+
+  // Side vignette — makes it feel like you're looking through a frame
+  const vig=ctx.createRadialGradient(W*0.5,H*0.38,H*0.1,W*0.5,H*0.38,W*0.72);
+  vig.addColorStop(0,'transparent');vig.addColorStop(1,'rgba(0,0,0,0.52)');
+  ctx.fillStyle=vig;ctx.fillRect(0,0,W,H);
+}
+
+function drawStars(W,H,baseA){
+  // More stars, varied sizes
+  const STARS=[
+    [0.03,0.07,1.2],[0.08,0.13,0.8],[0.13,0.03,1.0],[0.18,0.10,1.4],[0.23,0.06,0.7],
+    [0.28,0.15,1.1],[0.33,0.04,0.9],[0.38,0.11,1.3],[0.43,0.07,0.8],[0.48,0.02,1.0],
+    [0.52,0.09,1.2],[0.57,0.14,0.7],[0.62,0.05,1.1],[0.67,0.12,0.9],[0.72,0.03,1.3],
+    [0.76,0.08,0.8],[0.80,0.13,1.0],[0.84,0.05,1.4],[0.88,0.10,0.7],[0.92,0.04,1.1],
+    [0.95,0.13,0.9],[0.15,0.19,0.6],[0.45,0.17,0.8],[0.70,0.18,0.7],[0.85,0.17,0.9],
+  ];
+  const t=sceneState.t;
+  for(const [sx,sy,sz] of STARS){
+    const blink=0.4+0.6*Math.sin(t*0.4+sx*30+sy*20);
+    const a=blink*baseA*(0.5+sz*0.3);
+    ctx.fillStyle=`rgba(230,225,210,${a})`;
+    ctx.beginPath();
+    ctx.arc(sx*W,sy*H,sz*0.6,0,Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function drawClouds(W,H){
+  const density=Math.min(1,sceneState.chapterIdx*0.18+sceneState.rain*0.55);
+  const ch=Math.min(sceneState.chapterIdx,SKY_MOODS.length-1);
+  // Cloud colour picks up a hint of horizon hue
+  const cloudTint=sceneState.chapterIdx>3?'12,8,18':'10,9,20';
+  for(const c of sceneState.clouds){
+    const a=c.alpha*(0.35+density*0.65);
+    // Each cloud is a few overlapping ellipses for organic shape
+    for(let j=0;j<3;j++){
+      const ox=Math.sin(c.x*10+j)*c.w*W*0.12;
+      const oy=Math.cos(c.x*8+j*1.3)*c.h*H*0.3;
+      const rx=c.w*W*(0.35+j*0.1);
+      const ry=c.h*H*(0.4+j*0.08);
+      const cg=ctx.createRadialGradient(c.x*W+ox,c.y*H+oy,0,c.x*W+ox,c.y*H+oy,rx);
+      cg.addColorStop(0,`rgba(${cloudTint},${a*(1-j*0.25)})`);
+      cg.addColorStop(1,'transparent');
+      ctx.fillStyle=cg;
+      ctx.beginPath();
+      ctx.ellipse(c.x*W+ox,c.y*H+oy,rx,ry,0,0,Math.PI*2);
+      ctx.fill();
+    }
+  }
+}
+
+// Unified building layer renderer — baseY controls horizon line, scale controls height
+function drawCityLayer(W,H,baseYFrac,heightScale,fillColor,isDistant){
+  const baseY=H*baseYFrac;
+  // Seeded building list stretches full width
+  const seed=isDistant?7:13;
+  const buildings=[];
+  let x=0;
+  const rng=(s)=>(((Math.sin(s*127.1+3.9)*43758.5)%1+1)%1);
+  let idx=0;
+  while(x<W+60){
+    const w=Math.round(20+rng(idx*seed)*55);
+    const h=Math.round((30+rng(idx*seed+1)*160)*heightScale);
+    buildings.push({x,w,h});
+    x+=w+Math.round(rng(idx*seed+2)*4);
+    idx++;
+  }
+
+  const t=sceneState.t;
+  for(const b of buildings){
+    // Building body
+    ctx.fillStyle=fillColor;
+    ctx.fillRect(b.x,baseY-b.h,b.w,b.h+H*0.35);
+
+    // Roofline edge — lighter 1px cap
+    if(!isDistant){
+      ctx.fillStyle='rgba(32,32,52,0.7)';
+      ctx.fillRect(b.x,baseY-b.h,b.w,1);
+      // Side edge catches ambient light
+      ctx.fillStyle='rgba(28,30,48,0.5)';
+      ctx.fillRect(b.x,baseY-b.h,1,b.h);
+    }
+
+    // Windows — vary size and spacing by layer
+    const wW=isDistant?2:3, wH=isDistant?3:4;
+    const gX=isDistant?6:8, gY=isDistant?8:11;
+    const startX=b.x+3,startY=baseY-b.h+6;
+    for(let wy=startY;wy<baseY-6;wy+=gY){
+      for(let wx=startX;wx<b.x+b.w-3;wx+=gX){
+        const s=wx*997+wy*11+b.x*3;
+        const flick=Math.sin(t*0.28+s*0.0007);
+        const state=(s*7)%10;
+        let wc;
+        // Warm window — sodium light
+        if(state<3)      wc=`rgba(220,170,80,${(isDistant?0.18:0.28)+flick*0.04})`;
+        // Cool window — fluorescent/screen
+        else if(state<5) wc=`rgba(80,110,180,${(isDistant?0.14:0.22)+flick*0.05})`;
+        // Dim
+        else if(state<7) wc=`rgba(28,28,44,${isDistant?0.4:0.6})`;
+        // Off
+        else             wc=`rgba(10,10,18,${isDistant?0.6:0.85})`;
+        // Glitch: window flashes red
+        if(sceneState.glitchLevel>0.28&&Math.sin(t*4.5+s)>0.96)
+          wc=`rgba(200,50,50,${sceneState.glitchLevel*0.25})`;
+        ctx.fillStyle=wc;
+        ctx.fillRect(wx,wy,wW,wH);
+      }
+    }
+
+    // Rooftop lights on taller near buildings
+    if(!isDistant&&b.h>100){
+      const blinkA=Math.sin(t*1.1+b.x*0.05)>0.55?0.9:0.0;
+      if(blinkA>0){
+        ctx.fillStyle=`rgba(220,60,60,${blinkA})`;
+        ctx.beginPath();ctx.arc(b.x+b.w*0.5,baseY-b.h-2,1.5,0,Math.PI*2);ctx.fill();
+        // Tiny glow halo around blink light
+        const rg=ctx.createRadialGradient(b.x+b.w*0.5,baseY-b.h-2,0,b.x+b.w*0.5,baseY-b.h-2,8);
+        rg.addColorStop(0,`rgba(220,60,60,0.18)`);rg.addColorStop(1,'transparent');
+        ctx.fillStyle=rg;ctx.fillRect(b.x+b.w*0.5-10,baseY-b.h-12,20,20);
+      }
+    }
+  }
+}
+
+function drawLedge(W,H){
+  const lY=Math.round(H*0.72);
+
+  // Broad rooftop floor — occupies bottom ~28% of panel
+  const floorG=ctx.createLinearGradient(0,lY,0,H);
+  floorG.addColorStop(0,'#1e1e2c');
+  floorG.addColorStop(0.4,'#181820');
+  floorG.addColorStop(1,'#0e0e14');
+  ctx.fillStyle=floorG;
+  ctx.fillRect(0,lY,W,H-lY);
+
+  // Parapet wall — sits at the ledge line
+  const parG=ctx.createLinearGradient(0,lY-22,0,lY);
+  parG.addColorStop(0,'#1c1c28');
+  parG.addColorStop(1,'#222230');
+  ctx.fillStyle=parG;
+  ctx.fillRect(0,lY-22,W,22);
+
+  // Parapet top cap — brightest surface, catches sky
+  ctx.fillStyle='rgba(44,46,68,0.95)';
+  ctx.fillRect(0,lY-22,W,2);
+
+  // Parapet front face — slightly lit
+  ctx.fillStyle='rgba(26,26,38,0.8)';
+  ctx.fillRect(0,lY,W,4);
+
+  // Concrete expansion joints
+  ctx.strokeStyle='rgba(14,14,22,0.7)';
+  ctx.lineWidth=1;
+  for(let x=90;x<W;x+=110){
+    ctx.beginPath();ctx.moveTo(x,lY-22);ctx.lineTo(x,lY+4);ctx.stroke();
+  }
+
+  // Floor texture — subtle grid lines
+  ctx.strokeStyle='rgba(20,20,30,0.4)';
+  ctx.lineWidth=0.5;
+  for(let x=0;x<W;x+=30){
+    ctx.beginPath();ctx.moveTo(x,lY);ctx.lineTo(x,H);ctx.stroke();
+  }
+  for(let y=lY+15;y<H;y+=20){
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
+  }
+
+  // Rain puddles on floor
+  if(sceneState.rain>0.2){
+    const pa=sceneState.rain*0.3;
+    // Multiple puddles with city-light reflections
+    const puddles=[{x:W*0.12,r:50},{x:W*0.38,r:38},{x:W*0.62,r:60},{x:W*0.85,r:42}];
+    for(const p of puddles){
+      ctx.fillStyle=`rgba(22,28,48,${pa})`;
+      ctx.beginPath();ctx.ellipse(p.x,lY+8,p.r,3.5,0,0,Math.PI*2);ctx.fill();
+      // Faint colour reflection
+      const rg=ctx.createRadialGradient(p.x,lY+8,0,p.x,lY+8,p.r);
+      rg.addColorStop(0,`rgba(100,80,40,${pa*0.35})`);
+      rg.addColorStop(1,'transparent');
+      ctx.fillStyle=rg;
+      ctx.beginPath();ctx.ellipse(p.x,lY+8,p.r,3.5,0,0,Math.PI*2);ctx.fill();
+    }
+  }
+}
+
+function drawRooftopDetails(W,H){
+  const lY=Math.round(H*0.72);
+  const t=sceneState.t;
+
+  // ── CHAIN-LINK FENCE — left third foreground ──
+  const fenceY=lY-22;
+  const fenceH=32;
+  ctx.strokeStyle='rgba(36,40,58,0.65)';ctx.lineWidth=0.8;
+  for(let x=0;x<W*0.38;x+=8){
+    ctx.beginPath();ctx.moveTo(x,fenceY);ctx.lineTo(x+4,fenceY+fenceH*0.5);
+    ctx.lineTo(x,fenceY+fenceH);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x+4,fenceY);ctx.lineTo(x,fenceY+fenceH*0.5);
+    ctx.lineTo(x+4,fenceY+fenceH);ctx.stroke();
+  }
+  // Fence top rail
+  ctx.strokeStyle='rgba(44,48,68,0.7)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(0,fenceY);ctx.lineTo(W*0.38,fenceY);ctx.stroke();
+  // Fence bottom rail
+  ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,fenceY+fenceH);ctx.lineTo(W*0.38,fenceY+fenceH);ctx.stroke();
+
+  // ── VENTILATION SHAFT — left area ──
+  const vx=W*0.06, vy=lY-46;
+  ctx.fillStyle='#161620';ctx.fillRect(vx,vy,52,24);
+  ctx.fillStyle='rgba(10,10,16,0.9)';ctx.fillRect(vx,vy,52,2); // top
+  ctx.fillStyle='rgba(30,32,46,0.5)';ctx.fillRect(vx,vy+2,1,22);// side
+  // Vent louvers
+  for(let i=0;i<5;i++){
+    ctx.fillStyle='rgba(10,10,16,0.8)';
+    ctx.fillRect(vx+4+i*9,vy+6,2,12);
+  }
+
+  // ── HVAC UNIT — centre-left ──
+  const hx=W*0.28, hy=lY-54;
+  ctx.fillStyle='#1a1a26';ctx.fillRect(hx,hy,68,32);
+  ctx.fillStyle='rgba(32,34,50,0.7)';ctx.fillRect(hx,hy,68,2);
+  ctx.fillStyle='rgba(12,12,20,0.9)';ctx.fillRect(hx+2,hy+2,1,30);
+  // Fan grille circle
+  ctx.strokeStyle='rgba(28,30,44,0.8)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.arc(hx+34,hy+17,12,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.arc(hx+34,hy+17,6,0,Math.PI*2);ctx.stroke();
+  // Fan blades (slowly spinning)
+  ctx.save();ctx.translate(hx+34,hy+17);ctx.rotate(t*0.4);
+  for(let a=0;a<4;a++){
+    ctx.rotate(Math.PI/2);
+    ctx.strokeStyle='rgba(24,26,40,0.9)';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(0,-10);ctx.stroke();
+  }
+  ctx.restore();
+
+  // ── PIPES running across floor ──
+  // Main horizontal pipe
+  ctx.fillStyle=PAL.pipe;ctx.fillRect(W*0.38,lY-7,W*0.42,3);
+  ctx.fillStyle=PAL.pipeH;ctx.fillRect(W*0.38,lY-7,W*0.42,1);
+  // Vertical elbow
+  ctx.fillStyle=PAL.pipe;ctx.fillRect(W*0.80-1,lY-20,3,14);
+  // Second thinner pipe
+  ctx.fillStyle='rgba(26,26,38,0.8)';ctx.fillRect(W*0.38,lY-12,W*0.25,2);
+  // Pipe brackets
+  for(let px2=W*0.42;px2<W*0.78;px2+=W*0.08){
+    ctx.fillStyle='rgba(28,28,42,0.7)';
+    ctx.fillRect(px2-2,lY-10,4,6);
+  }
+
+  // ── WATER TOWER — right side, larger and more detailed ──
+  const tx=W*0.84,ty=lY-88;
+  // Legs (three visible)
+  ctx.fillStyle='rgba(18,18,28,0.9)';
+  for(const [lx,tilt] of [[tx+6,2],[tx+22,0],[tx+38,-2]]){
+    ctx.save();ctx.translate(lx,ty+58);ctx.rotate(tilt*0.02);
+    ctx.fillRect(-2,0,4,32);ctx.restore();
+  }
+  // Cross brace
+  ctx.strokeStyle='rgba(22,22,34,0.7)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(tx+6,ty+70);ctx.lineTo(tx+44,ty+58);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(tx+44,ty+70);ctx.lineTo(tx+6,ty+58);ctx.stroke();
+  // Tank body (tapered cylinder via trapezoid)
+  ctx.fillStyle='#1c1c2a';
+  ctx.beginPath();
+  ctx.moveTo(tx+4,ty+58);ctx.lineTo(tx,ty+8);
+  ctx.lineTo(tx+46,ty+8);ctx.lineTo(tx+42,ty+58);
+  ctx.closePath();ctx.fill();
+  // Barrel rings
+  for(const ry of [ty+18,ty+30,ty+42]){
+    ctx.strokeStyle='rgba(28,30,44,0.8)';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(tx,ry);ctx.lineTo(tx+46,ry);ctx.stroke();
+  }
+  // Roof cap
+  ctx.fillStyle='rgba(24,24,36,0.9)';
+  ctx.beginPath();ctx.moveTo(tx-2,ty+8);ctx.lineTo(tx+23,ty);ctx.lineTo(tx+48,ty+8);ctx.closePath();ctx.fill();
+
+  // ── TALL ANTENNA — mid-left ──
+  const ax=W*0.44;
+  ctx.strokeStyle='rgba(40,44,62,0.8)';ctx.lineWidth=1.2;
+  ctx.beginPath();ctx.moveTo(ax,lY-22);ctx.lineTo(ax,lY-80);ctx.stroke();
+  // Crossbars
+  for(const cy of [lY-40,lY-56,lY-70]){
+    const cw=12-(cy-(lY-40))*0.1;
+    ctx.beginPath();ctx.moveTo(ax-cw,cy);ctx.lineTo(ax+cw,cy);ctx.stroke();
+    ctx.lineWidth=0.7;
+    ctx.beginPath();ctx.moveTo(ax-cw,cy);ctx.lineTo(ax,cy-8);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(ax+cw,cy);ctx.lineTo(ax,cy-8);ctx.stroke();
+    ctx.lineWidth=1.2;
+  }
+  // Blinking tip light
+  const blinkOn=Math.sin(t*1.3)>0.5;
+  ctx.fillStyle=blinkOn?'rgba(220,60,60,0.95)':'rgba(80,20,20,0.4)';
+  ctx.beginPath();ctx.arc(ax,lY-81,1.8,0,Math.PI*2);ctx.fill();
+  if(blinkOn){
+    const bg=ctx.createRadialGradient(ax,lY-81,0,ax,lY-81,10);
+    bg.addColorStop(0,'rgba(220,60,60,0.2)');bg.addColorStop(1,'transparent');
+    ctx.fillStyle=bg;ctx.fillRect(ax-12,lY-93,24,24);
+  }
+
+  // ── CABLES spanning the roof ──
+  ctx.strokeStyle='rgba(22,22,32,0.6)';ctx.lineWidth=0.8;
+  const cables=[
+    [0,lY-30,W*0.44,lY-82],
+    [W*0.44,lY-80,W*0.72,lY-36],
+    [W*0.18,lY-22,W*0.44,lY-62],
+  ];
+  for(const [x1,y1,x2,y2] of cables){
+    const mx=(x1+x2)/2, my=Math.max(y1,y2)+18;
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.quadraticCurveTo(mx,my,x2,y2);ctx.stroke();
+  }
+
+  // ── DOOR / STAIRWELL ACCESS — right of centre ──
+  const dx=W*0.57, dy=lY-44;
+  ctx.fillStyle='#161620';ctx.fillRect(dx,dy,30,44);
+  ctx.fillStyle='rgba(10,10,16,0.9)';ctx.fillRect(dx,dy,30,2);
+  ctx.fillStyle='rgba(32,32,46,0.5)';ctx.fillRect(dx,dy+2,1,42);
+  // Door panel
+  ctx.fillStyle='rgba(18,18,26,0.9)';ctx.fillRect(dx+6,dy+12,18,30);
+  ctx.fillStyle='rgba(10,10,16,0.7)';ctx.fillRect(dx+6,dy+12,18,1);
+  // Handle
+  ctx.fillStyle='rgba(38,42,60,0.8)';ctx.fillRect(dx+20,dy+26,3,6);
+}
+
+function drawRain(W,H){
+  ctx.save();
+  for(const p of rainParticles){
+    p.y+=p.vy*sceneState.rain*2;p.x+=p.vx*sceneState.rain*1.2;
+    if(p.y>H){p.y=-12;p.x=Math.random()*W;}
+    if(p.x>W) p.x=0;if(p.x<0) p.x=W;
+    ctx.strokeStyle=`rgba(130,155,210,${p.alpha*sceneState.rain*0.9})`;
+    ctx.lineWidth=0.6;ctx.beginPath();
+    ctx.moveTo(p.x,p.y);
+    ctx.lineTo(p.x+p.vx*p.len*0.25,p.y+p.len*Math.min(sceneState.rain*1.2,1));
+    ctx.stroke();
+  }
+  // Splash rings on parapet cap
+  const lY=H*0.72;
+  if(sceneState.rain>0.4){
+    ctx.strokeStyle=`rgba(110,140,200,${sceneState.rain*0.18})`;
+    ctx.lineWidth=0.5;
+    for(let i=0;i<4;i++){
+      const sx=(Math.sin(sceneState.t*4+i*1.8)*0.25+0.15+i*0.2)*W;
+      const sr=2+Math.sin(sceneState.t*3.5+i)*0.8;
+      ctx.beginPath();ctx.arc(sx,lY-21,sr,0,Math.PI);ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+function drawBloom(W,H){
+  const lY=H*0.68;
+  // City ambient — warm sodium glow rising from below
+  const cityG=ctx.createLinearGradient(0,lY-10,0,lY+50);
+  cityG.addColorStop(0,'transparent');
+  cityG.addColorStop(0.5,`rgba(100,72,28,${0.09+sceneState.rain*0.02})`);
+  cityG.addColorStop(1,'transparent');
+  ctx.fillStyle=cityG;ctx.fillRect(0,lY-10,W,60);
+
+  // Localised window glows — a few clusters of warm colour
+  const glowPts=[[0.08,0.61],[0.24,0.57],[0.47,0.63],[0.66,0.58],[0.82,0.60]];
+  for(const [gx,gy] of glowPts){
+    const ga=0.06+Math.sin(sceneState.t*0.3+gx*10)*0.02;
+    const rg=ctx.createRadialGradient(gx*W,gy*H,0,gx*W,gy*H,28);
+    rg.addColorStop(0,`rgba(190,145,60,${ga})`);rg.addColorStop(1,'transparent');
+    ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);
+  }
+
+  // Glitch emergency strobe
+  if(sceneState.glitchLevel>0.18){
+    if(Math.sin(sceneState.t*7.8)>0.70){
+      const rg=ctx.createRadialGradient(W*0.27,H*0.5,0,W*0.27,H*0.5,60);
+      rg.addColorStop(0,`rgba(215,45,45,${sceneState.glitchLevel*0.16})`);
+      rg.addColorStop(1,'transparent');
+      ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);
+    }
+  }
+}
+
+function drawGlitch(W,H){
+  const lvl=sceneState.glitchLevel;
+  for(let i=0;i<Math.floor(lvl*7);i++){
+    const y=Math.random()*H,sh=1+Math.random()*7,off=(-35+Math.random()*70)*lvl;
+    ctx.save();try{ctx.drawImage(canvas,0,y,W,sh,off,y,W,sh);}catch(e){}ctx.restore();
+    if(Math.random()<0.38){ctx.fillStyle=`rgba(180,70,70,${Math.random()*0.045*lvl})`;ctx.fillRect(0,y,W,sh);}
+  }
+  if(Math.random()<lvl*0.07){ctx.fillStyle=`rgba(90,110,210,${Math.random()*0.03})`;ctx.fillRect(0,Math.random()*H,W,Math.random()*18+2);}
+}
+
+// Scene state helpers — called from story nodes (kept for compatibility)
+function setSceneChapter(idx){
+  sceneState.chapterIdx=idx;
+  const el=document.getElementById('scene-chapter-label');
+  if(el) el.textContent=`CH. 0${idx+1}`;
+}
+function setThomasEdge(dist){sceneState.thomasEdgeDist=Math.max(0,Math.min(1,dist));}
+function setChenVisible(v,pos){sceneState.chenVisible=v;if(pos!==undefined)sceneState.chenPos=pos;}
+function setThomasLooking(v){sceneState.thomasLooking=v;}
+function setSpotlight(v,x){sceneState.spotActive=v;if(x!==undefined)sceneState.spotX=x;}
 
 const PAL={
   sky0:'#070710',sky1:'#0d0d1a',
@@ -814,496 +1317,6 @@ function drawScene(){
   const skyG=ctx.createLinearGradient(0,0,0,H*0.72);
   skyG.addColorStop(0,s0);skyG.addColorStop(1,s1);
   ctx.fillStyle=skyG;ctx.fillRect(0,0,W,H);
-
-  // Stars — fade as chapter advances and rain builds
-  const starAlpha=Math.max(0,(1-sceneState.chapterIdx*0.18))*(1-sceneState.rain*0.9);
-  if(starAlpha>0.02) drawStars(W,H,starAlpha);
-
-  // Cloud layers — build as tension rises
-  drawClouds(W,H);
-
-  // Fog layer
-  if(sceneState.rain>0.15||sceneState.chapterIdx>2){
-    const fogA=(sceneState.rain*0.25)+(sceneState.chapterIdx*0.04);
-    ctx.fillStyle=`rgba(10,8,18,${Math.min(0.4,fogA)})`;
-    ctx.fillRect(0,H*0.25,W,H*0.5);
-  }
-
-  drawBuildings(W,H,true);
-  drawBuildings(W,H,false);
-  drawLedge(W,H);
-  drawRooftopDetails(W,H);
-
-  // Spotlight / flashlight cone (active when spotActive)
-  if(sceneState.spotActive) drawSpotlight(W,H);
-
-  // Both figures
-  drawChen(W,H);
-  drawThomas(W,H);
-
-  if(sceneState.rain>0) drawRain(W,H);
-  if(sceneState.glitchLevel>0.05) drawGlitch(W,H);
-  drawBloom(W,H);
-
-  // Bottom vignette
-  const fade=ctx.createLinearGradient(0,H*0.52,0,H);
-  fade.addColorStop(0,'transparent');fade.addColorStop(1,'#0a0a0b');
-  ctx.fillStyle=fade;ctx.fillRect(0,0,W,H);
-  const vig=ctx.createRadialGradient(W/2,H*0.4,H*0.12,W/2,H*0.4,H*0.9);
-  vig.addColorStop(0,'transparent');vig.addColorStop(1,'rgba(0,0,0,0.5)');
-  ctx.fillStyle=vig;ctx.fillRect(0,0,W,H);
-}
-
-function drawStars(W,H,baseAlpha){
-  const stars=[[0.05,0.08],[0.12,0.14],[0.19,0.04],[0.28,0.11],[0.35,0.06],[0.41,0.15],
-    [0.48,0.03],[0.55,0.09],[0.62,0.13],[0.7,0.05],[0.76,0.10],[0.83,0.07],[0.9,0.12],[0.96,0.04]];
-  for(const [sx,sy] of stars){
-    const blink=0.3+0.4*Math.sin(sceneState.t*0.5+sx*20);
-    ctx.fillStyle=`rgba(220,220,200,${blink*baseAlpha*0.7})`;
-    ctx.fillRect(Math.round(sx*W),Math.round(sy*H),1,1);
-  }
-}
-
-function drawClouds(W,H){
-  const density=Math.min(1,(sceneState.chapterIdx*0.2)+sceneState.rain*0.5);
-  for(const c of sceneState.clouds){
-    const alpha=c.alpha*(0.4+density*0.6);
-    const cg=ctx.createRadialGradient(c.x*W,c.y*H,0,c.x*W,c.y*H,c.w*W*0.5);
-    cg.addColorStop(0,`rgba(20,16,30,${alpha})`);
-    cg.addColorStop(1,'transparent');
-    ctx.fillStyle=cg;
-    ctx.beginPath();
-    ctx.ellipse(c.x*W,c.y*H,c.w*W*0.5,c.h*H*0.5,0,0,Math.PI*2);
-    ctx.fill();
-  }
-}
-
-function drawSpotlight(W,H){
-  const lY=H*0.71;
-  const sx=sceneState.spotX*W;
-  const sg=ctx.createRadialGradient(sx,lY-10,0,sx,lY*0.3,lY*0.7);
-  sg.addColorStop(0,'rgba(200,190,160,0.08)');
-  sg.addColorStop(0.4,'rgba(180,170,140,0.03)');
-  sg.addColorStop(1,'transparent');
-  ctx.fillStyle=sg;ctx.fillRect(0,0,W,H);
-  // Cone lines
-  ctx.save();
-  ctx.strokeStyle='rgba(200,190,160,0.04)';ctx.lineWidth=1;
-  for(let a=-0.3;a<=0.3;a+=0.15){
-    ctx.beginPath();ctx.moveTo(sx,0);ctx.lineTo(sx+Math.sin(a)*lY,lY);ctx.stroke();
-  }
-  ctx.restore();
-}
-
-function drawBuildings(W,H,far){
-  const baseY=far?H*0.62:H*0.68;
-  const bldgs=far?[
-    {x:0,w:55,h:80},{x:60,w:40,h:60},{x:105,w:70,h:100},
-    {x:180,w:45,h:70},{x:230,w:90,h:120},{x:325,w:50,h:80},
-    {x:380,w:65,h:105},{x:450,w:55,h:75},{x:510,w:80,h:110},
-    {x:595,w:45,h:65},{x:645,w:70,h:95},{x:720,w:50,h:80},{x:775,w:60,h:90},
-  ]:[
-    {x:0,w:38,h:140},{x:42,w:28,h:105},{x:74,w:48,h:165},
-    {x:126,w:32,h:90},{x:162,w:58,h:200},{x:224,w:42,h:145},
-    {x:270,w:75,h:220},{x:349,w:38,h:125},{x:391,w:52,h:175},
-    {x:447,w:66,h:210},{x:517,w:33,h:115},{x:554,w:48,h:155},
-    {x:606,w:38,h:140},{x:648,w:33,h:110},{x:685,w:56,h:190},{x:745,w:42,h:148},
-    {x:791,w:36,h:130},
-  ];
-  const t=sceneState.t;
-  for(const b of bldgs){
-    ctx.fillStyle=far?'rgba(8,8,14,0.9)':'rgba(10,10,18,0.95)';
-    ctx.fillRect(b.x,baseY-b.h,b.w,b.h+H);
-    px(b.x,baseY-b.h,1,b.h,far?'rgba(24,24,40,0.4)':'rgba(28,28,48,0.7)');
-    px(b.x+b.w-1,baseY-b.h,1,b.h,far?'rgba(20,20,36,0.3)':'rgba(22,22,38,0.5)');
-    // Windows
-    const winW=4,winH=5,gapX=9,gapY=13;
-    for(let wy=baseY-b.h+8;wy<baseY-8;wy+=gapY){
-      for(let wx=b.x+5;wx<b.x+b.w-5;wx+=gapX){
-        const seed=wx*1000+wy*13+b.x;
-        const flicker=Math.sin(t*0.3+seed*0.001);
-        const state=((seed*7)%10);
-        let wc;
-        if(state<3) wc=`rgba(200,160,80,${0.06+flicker*0.03})`;
-        else if(state<5) wc=`rgba(60,80,140,${0.12+flicker*0.04})`;
-        else if(state<7) wc=`rgba(30,30,48,0.5)`;
-        else wc=`rgba(14,14,24,0.8)`;
-        if(sceneState.glitchLevel>0.3&&Math.sin(t*5+seed)>0.97)
-          wc=`rgba(180,60,60,${0.15*sceneState.glitchLevel})`;
-        px(wx,wy,winW,winH,wc);
-      }
-    }
-  }
-}
-
-function drawLedge(W,H){
-  const lY=Math.round(H*0.72);
-
-  // Ledge top surface — slight perspective gradient
-  const lg=ctx.createLinearGradient(0,lY-2,0,lY+10);
-  lg.addColorStop(0,'#222230');
-  lg.addColorStop(0.3,'#1a1a26');
-  lg.addColorStop(1,'#0e0e16');
-  ctx.fillStyle=lg;
-  ctx.fillRect(0,lY-2,W,12);
-
-  // Top edge highlight — thin bright line
-  ctx.fillStyle='rgba(50,52,74,0.8)';
-  ctx.fillRect(0,lY-2,W,1);
-
-  // Parapet wall — lower section the figures stand on
-  const pg=ctx.createLinearGradient(0,lY-18,0,lY-2);
-  pg.addColorStop(0,'#181820');
-  pg.addColorStop(1,'#1e1e2c');
-  ctx.fillStyle=pg;
-  ctx.fillRect(0,lY-18,W,16);
-
-  // Parapet top cap — slim lighter band
-  ctx.fillStyle='rgba(38,40,58,0.9)';
-  ctx.fillRect(0,lY-18,W,2);
-
-  // Occasional concrete seams
-  ctx.strokeStyle='rgba(12,12,18,0.6)';
-  ctx.lineWidth=1;
-  for(let x=80;x<W;x+=120){
-    ctx.beginPath();ctx.moveTo(x,lY-18);ctx.lineTo(x,lY+10);ctx.stroke();
-  }
-
-  // Rain puddles — use ellipses, not rects
-  if(sceneState.rain>0.25){
-    const pa=sceneState.rain*0.22;
-    ctx.fillStyle=`rgba(30,40,70,${pa})`;
-    ctx.beginPath();ctx.ellipse(110,lY+5,44,2.5,0,0,Math.PI*2);ctx.fill();
-    ctx.beginPath();ctx.ellipse(290,lY+5,30,2,0,0,Math.PI*2);ctx.fill();
-    ctx.beginPath();ctx.ellipse(480,lY+4,52,2.5,0,0,Math.PI*2);ctx.fill();
-    // Reflections in puddles — faint city smear
-    const ref=ctx.createLinearGradient(70,lY+3,150,lY+3);
-    ref.addColorStop(0,'transparent');
-    ref.addColorStop(0.5,`rgba(80,60,30,${pa*0.5})`);
-    ref.addColorStop(1,'transparent');
-    ctx.fillStyle=ref;
-    ctx.beginPath();ctx.ellipse(110,lY+5,44,2.5,0,0,Math.PI*2);ctx.fill();
-  }
-}
-
-function drawRooftopDetails(W,H){
-  const lY=H*0.71;
-  // Water tower
-  const tx=W*0.85,ty=lY-55;
-  px(tx+14,ty+30,4,20,PAL.pipe);px(tx+28,ty+30,4,20,PAL.pipe);
-  for(let i=0;i<7;i++) px(tx+8,ty+i*5,30,4,i%2===0?PAL.pipe:PAL.pipeH);
-  px(tx+8,ty,30,3,'rgba(32,32,44,0.9)');
-  px(tx+8,ty+8,30,1,'rgba(40,44,58,0.8)');px(tx+8,ty+18,30,1,'rgba(40,44,58,0.8)');
-  // HVAC box
-  px(W*0.08,lY-24,36,18,PAL.bldEdge);px(W*0.08,lY-24,36,2,'rgba(36,36,52,0.9)');
-  for(let i=0;i<4;i++) px(W*0.08+4+i*8,lY-20,2,10,'rgba(12,12,20,0.8)');
-  // Pipe
-  px(0,lY-4,W*0.55,2,PAL.pipe);px(W*0.55,lY-12,2,12,PAL.pipe);
-  // Antenna
-  const ax=W*0.22,ay=lY-8;
-  px(ax,ay-40,1,40,'rgba(48,52,68,0.9)');
-  px(ax-8,ay-40,16,1,'rgba(48,52,68,0.7)');
-  px(ax-4,ay-36,8,1,'rgba(48,52,68,0.5)');
-  const blink=Math.sin(sceneState.t*1.2)>0.6;
-  if(blink) px(ax-1,ay-42,3,3,'rgba(200,60,60,0.9)');
-  for(let x=0;x<W*0.3;x+=4){
-    const fy=lY-14+Math.sin(x*0.4)*1;
-    px(x,fy,2,12,'rgba(30,34,48,0.25)');
-  }
-}
-
-// ── Human silhouette helper — draws a full standing figure as smooth paths
-// ox,oy = foot position, scale = height multiplier, facing = -1 left / 1 right
-// col = base fill color string, edgeAlpha = rim light intensity
-function drawHumanSilhouette(ox, oy, scale, facing, col, edgeAlpha){
-  const s=scale;
-  ctx.save();
-  ctx.translate(ox, oy);
-
-  // Overall fill
-  ctx.fillStyle=col;
-  ctx.strokeStyle=`rgba(80,90,130,${edgeAlpha})`;
-  ctx.lineWidth=0.8;
-
-  // ── LEGS ──
-  // Left leg
-  ctx.beginPath();
-  ctx.moveTo(-6*s, 0);
-  ctx.bezierCurveTo(-7*s, -10*s, -8*s, -25*s, -6*s, -44*s);
-  ctx.lineTo(-2*s, -44*s);
-  ctx.bezierCurveTo(-3*s, -25*s, -2*s, -10*s, -1*s, 0);
-  ctx.closePath();
-  ctx.fill();ctx.stroke();
-
-  // Right leg
-  ctx.beginPath();
-  ctx.moveTo(6*s, 0);
-  ctx.bezierCurveTo(7*s, -10*s, 8*s, -25*s, 6*s, -44*s);
-  ctx.lineTo(2*s, -44*s);
-  ctx.bezierCurveTo(3*s, -25*s, 2*s, -10*s, 1*s, 0);
-  ctx.closePath();
-  ctx.fill();ctx.stroke();
-
-  // Shoes
-  ctx.fillStyle=`rgba(50,55,75,0.9)`;
-  ctx.beginPath();ctx.ellipse(-4*s, 1*s, 4*s, 1.5*s, 0, 0, Math.PI*2);ctx.fill();
-  ctx.beginPath();ctx.ellipse(4*s, 1*s, 4*s, 1.5*s, 0, 0, Math.PI*2);ctx.fill();
-  ctx.fillStyle=col;
-
-  // ── COAT / TORSO ──
-  ctx.beginPath();
-  ctx.moveTo(-10*s, -44*s);
-  ctx.bezierCurveTo(-11*s, -55*s, -10*s, -68*s, -9*s, -78*s);
-  ctx.bezierCurveTo(-7*s, -80*s, 7*s, -80*s, 9*s, -78*s);
-  ctx.bezierCurveTo(10*s, -68*s, 11*s, -55*s, 10*s, -44*s);
-  ctx.closePath();
-  ctx.fill();ctx.stroke();
-
-  // Coat lapel fold
-  ctx.fillStyle=`rgba(18,18,28,0.8)`;
-  ctx.beginPath();
-  ctx.moveTo(0, -78*s);
-  ctx.lineTo(facing*3*s, -70*s);
-  ctx.lineTo(0, -62*s);
-  ctx.lineTo(facing*-3*s, -70*s);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle=col;
-
-  // ── ARMS ──
-  // The arm on the far side hangs; near side is slightly bent
-  const armSwing=Math.sin(sceneState.t*0.4)*1.5*s;
-  // Far arm
-  ctx.beginPath();
-  ctx.moveTo(facing*-9*s, -75*s);
-  ctx.bezierCurveTo(facing*-13*s, -65*s, facing*-14*s, -52*s, facing*-12*s+armSwing, -42*s);
-  ctx.lineTo(facing*-9*s+armSwing, -42*s);
-  ctx.bezierCurveTo(facing*-10*s, -52*s, facing*-10*s, -65*s, facing*-6*s, -74*s);
-  ctx.closePath();
-  ctx.fill();ctx.stroke();
-
-  // Near arm
-  ctx.beginPath();
-  ctx.moveTo(facing*9*s, -75*s);
-  ctx.bezierCurveTo(facing*13*s, -65*s, facing*14*s, -52*s, facing*12*s-armSwing*0.5, -42*s);
-  ctx.lineTo(facing*9*s-armSwing*0.5, -42*s);
-  ctx.bezierCurveTo(facing*10*s, -52*s, facing*10*s, -65*s, facing*6*s, -74*s);
-  ctx.closePath();
-  ctx.fill();ctx.stroke();
-
-  // Hands
-  ctx.fillStyle=`rgba(60,58,72,0.85)`;
-  ctx.beginPath();ctx.ellipse(facing*-11*s+armSwing,-42*s,2.5*s,3*s,0.2,0,Math.PI*2);ctx.fill();
-  ctx.beginPath();ctx.ellipse(facing*11*s-armSwing*0.5,-42*s,2.5*s,3*s,-0.2,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle=col;
-
-  // ── NECK & HEAD ──
-  ctx.beginPath();
-  ctx.moveTo(-2.5*s, -80*s);
-  ctx.lineTo(2.5*s, -80*s);
-  ctx.lineTo(2.5*s, -85*s);
-  ctx.lineTo(-2.5*s, -85*s);
-  ctx.closePath();
-  ctx.fill();
-
-  // Head — oval with slight chin definition
-  ctx.beginPath();
-  ctx.moveTo(0, -98*s);
-  ctx.bezierCurveTo(8*s, -98*s, 10*s, -90*s, 9*s, -86*s);
-  ctx.bezierCurveTo(8*s, -83*s, 5*s, -82*s, 0, -82*s);
-  ctx.bezierCurveTo(-5*s, -82*s, -8*s, -83*s, -9*s, -86*s);
-  ctx.bezierCurveTo(-10*s, -90*s, -8*s, -98*s, 0, -98*s);
-  ctx.fill();ctx.stroke();
-
-  // Hair mass
-  ctx.fillStyle=`rgba(22,20,32,0.95)`;
-  ctx.beginPath();
-  ctx.moveTo(-9*s, -90*s);
-  ctx.bezierCurveTo(-9*s, -100*s, -4*s, -103*s, 0, -103*s);
-  ctx.bezierCurveTo(4*s, -103*s, 9*s, -100*s, 9*s, -90*s);
-  ctx.bezierCurveTo(7*s, -94*s, -7*s, -94*s, -9*s, -90*s);
-  ctx.fill();
-  ctx.fillStyle=col;
-
-  // Subtle rim light on one edge
-  ctx.save();
-  ctx.globalAlpha=edgeAlpha*0.6;
-  ctx.strokeStyle='rgba(140,155,200,1)';
-  ctx.lineWidth=0.6;
-  ctx.beginPath();
-  ctx.moveTo(facing*-9*s, -44*s);
-  ctx.bezierCurveTo(facing*-11*s, -60*s, facing*-10*s, -75*s, facing*-9*s, -80*s);
-  ctx.stroke();
-  ctx.restore();
-
-  ctx.restore();
-}
-
-function drawChen(W,H){
-  if(!sceneState.chenVisible) return;
-  const lY=H*0.72;
-  const cx=Math.round(W*sceneState.chenPos);
-
-  // Flashlight glow from Chen's direction
-  if(sceneState.spotActive){
-    const fg=ctx.createRadialGradient(cx+20,lY-60,0,cx+40,lY-40,120);
-    fg.addColorStop(0,'rgba(200,185,140,0.07)');
-    fg.addColorStop(1,'transparent');
-    ctx.fillStyle=fg;ctx.fillRect(cx-20,lY-140,200,160);
-  }
-
-  // Ground shadow
-  ctx.fillStyle='rgba(0,0,0,0.3)';
-  ctx.beginPath();ctx.ellipse(cx,lY+2,12,4,0,0,Math.PI*2);ctx.fill();
-
-  // Chen is 1 unit of scale = 1px, total height ~100 virtual units
-  // At scale 0.92 she's slightly shorter/further than Thomas
-  const scale=0.92;
-  drawHumanSilhouette(cx, lY, scale, 1, 'rgba(14,14,22,0.97)', 0.45);
-
-  // Chen's subtle detail: radio/clipboard in near hand
-  ctx.save();
-  ctx.translate(cx,lY);
-  ctx.fillStyle='rgba(60,80,110,0.7)';
-  ctx.fillRect(Math.round(9*scale), Math.round(-52*scale), Math.round(5*scale), Math.round(9*scale));
-  ctx.restore();
-}
-
-function drawThomas(W,H){
-  const lY=H*0.72;
-  const t=sceneState.t;
-
-  // Thomas position: moves back from ledge as trust is earned
-  const edgeOffset=sceneState.thomasEdgeDist*34;
-  const sway=Math.sin(t*0.38)*1.8*(1+sceneState.glitchLevel*1.5)*(1-sceneState.thomasEdgeDist*0.6);
-  const tx=Math.round(W*0.62+sway+edgeOffset);
-
-  // Atmospheric glow — colour shifts with reliability
-  const trust=G.reliability/100;
-  const glowR=Math.round(80+trust*40);
-  const glowG=Math.round(90+trust*40);
-  const glowB=Math.round(160+trust*20);
-  const glowA=0.06+trust*0.08;
-  const grd=ctx.createRadialGradient(tx,lY-60,0,tx,lY-50,90);
-  grd.addColorStop(0,`rgba(${glowR},${glowG},${glowB},${glowA})`);
-  grd.addColorStop(1,'transparent');
-  ctx.fillStyle=grd;
-  ctx.fillRect(tx-100,lY-180,200,200);
-
-  // Ground shadow — longer when on ledge
-  const shadowW=16+sceneState.thomasEdgeDist*8;
-  ctx.fillStyle='rgba(0,0,0,0.35)';
-  ctx.beginPath();ctx.ellipse(tx,lY+2,shadowW,4,0,0,Math.PI*2);ctx.fill();
-
-  const scale=1.0;
-  const facing=sceneState.thomasLooking?-1:1;
-  drawHumanSilhouette(tx, lY, scale, facing, 'rgba(12,12,20,0.98)', 0.55);
-
-  // Scarf detail — wraps around neck
-  ctx.save();
-  ctx.translate(tx, lY);
-  ctx.fillStyle='rgba(35,38,58,0.7)';
-  ctx.beginPath();
-  ctx.ellipse(0, -82*scale, 5*scale, 2.5*scale, 0, 0, Math.PI*2);
-  ctx.fill();
-  ctx.restore();
-
-  // Glitch fractured state — figure breaks up
-  if(sceneState.glitchLevel>0.4){
-    const lvl=sceneState.glitchLevel;
-    ctx.save();
-    ctx.globalAlpha=lvl*0.4;
-    ctx.drawImage(canvas,tx-30,lY-130,60,130,tx-30+(-4+Math.random()*8)*lvl,lY-130,60,130);
-    ctx.restore();
-  }
-
-  // Rain drip
-  if(sceneState.rain>0.45&&Math.sin(t*3.2)>0.75){
-    ctx.strokeStyle=`rgba(100,130,180,${sceneState.rain*0.35})`;
-    ctx.lineWidth=0.7;
-    ctx.beginPath();
-    ctx.moveTo(tx+2, lY-130);
-    ctx.lineTo(tx+2, lY-130+sceneState.rain*22);
-    ctx.stroke();
-  }
-}
-
-function drawRain(W,H){
-  ctx.save();
-  for(const p of rainParticles){
-    p.y+=p.vy*sceneState.rain*2;p.x+=p.vx*sceneState.rain;
-    if(p.y>H){p.y=-10;p.x=Math.random()*W;}
-    if(p.x>W) p.x=0; if(p.x<0) p.x=W;
-    ctx.strokeStyle=`rgba(120,150,200,${p.alpha*sceneState.rain})`;
-    ctx.lineWidth=0.5;ctx.beginPath();
-    ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+p.vx*p.len*0.2,p.y+p.len*sceneState.rain);
-    ctx.stroke();
-  }
-  const lY=H*0.71+4;
-  if(sceneState.rain>0.5){
-    for(let i=0;i<3;i++){
-      const sx=Math.sin(sceneState.t*5+i*2)*W*0.3+W*0.3;
-      ctx.strokeStyle=`rgba(100,130,180,${sceneState.rain*0.2})`;ctx.lineWidth=0.5;
-      ctx.beginPath();ctx.arc(sx,lY,2+Math.sin(sceneState.t*4+i)*1,0,Math.PI);ctx.stroke();
-    }
-  }
-  ctx.restore();
-}
-
-function drawBloom(W,H){
-  const bloomY=H*0.68;
-
-  // City ambient glow — warm orange band at horizon
-  const bloom=ctx.createLinearGradient(0,bloomY-30,0,bloomY+40);
-  bloom.addColorStop(0,'transparent');
-  bloom.addColorStop(0.4,`rgba(90,65,28,${0.07+sceneState.rain*0.03})`);
-  bloom.addColorStop(0.7,`rgba(60,40,18,${0.05})`);
-  bloom.addColorStop(1,'transparent');
-  ctx.fillStyle=bloom;
-  ctx.fillRect(0,bloomY-30,W,70);
-
-  // Scattered point glows from windows — a few warm spots
-  const pts=[[0.15,0.62],[0.38,0.58],[0.52,0.65],[0.71,0.60],[0.88,0.64]];
-  for(const [px2,py] of pts){
-    const rg=ctx.createRadialGradient(px2*W,py*H,0,px2*W,py*H,30+Math.sin(sceneState.t+px2*10)*5);
-    rg.addColorStop(0,`rgba(200,150,70,${0.04+Math.sin(sceneState.t*0.3+px2*8)*0.015})`);
-    rg.addColorStop(1,'transparent');
-    ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);
-  }
-
-  // Emergency strobe on a far building when glitch is active
-  if(sceneState.glitchLevel>0.2){
-    const fl=Math.sin(sceneState.t*7.5)>0.72;
-    if(fl){
-      const rg=ctx.createRadialGradient(W*0.28,H*0.5,0,W*0.28,H*0.5,55);
-      rg.addColorStop(0,`rgba(210,50,50,${sceneState.glitchLevel*0.14})`);
-      rg.addColorStop(1,'transparent');
-      ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);
-    }
-  }
-}
-
-function drawGlitch(W,H){
-  const lvl=sceneState.glitchLevel;
-  const n=Math.floor(lvl*6);
-  for(let i=0;i<n;i++){
-    const y=Math.random()*H,sh=1+Math.random()*6,off=(-30+Math.random()*60)*lvl;
-    ctx.save();try{ctx.drawImage(canvas,0,y,W,sh,off,y,W,sh);}catch(e){}ctx.restore();
-    if(Math.random()<0.4){ctx.fillStyle=`rgba(180,80,80,${Math.random()*0.04*lvl})`;ctx.fillRect(0,y,W,sh);}
-  }
-  if(Math.random()<lvl*0.08){ctx.fillStyle=`rgba(100,120,200,${Math.random()*0.025})`;ctx.fillRect(0,Math.random()*H,W,Math.random()*16+2);}
-}
-
-// Scene state helpers — called from story nodes
-function setSceneChapter(idx){
-  sceneState.chapterIdx=idx;
-  const el=document.getElementById('scene-chapter-label');
-  if(el) el.textContent=`CH. 0${idx+1}`;
-}
-function setThomasEdge(dist){sceneState.thomasEdgeDist=Math.max(0,Math.min(1,dist));}
-function setChenVisible(v,pos){sceneState.chenVisible=v;if(pos!==undefined)sceneState.chenPos=pos;}
-function setThomasLooking(v){sceneState.thomasLooking=v;}
-function setSpotlight(v,x){sceneState.spotActive=v;if(x!==undefined)sceneState.spotX=x;}
 
 // Title screen procedural art
 function initTitleCanvas(){
