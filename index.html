@@ -80,61 +80,195 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
 .choice-btn.danger-choice:hover::before{background:var(--danger)}
 
 /* ══════════════════════════════════════
-   EVIDENCE PANEL — right column
+   EVIDENCE PANEL — right column / desk
    ══════════════════════════════════════ */
 #evidence-col{
-  width:220px;flex-shrink:0;
+  width:230px;flex-shrink:0;
   border-left:1px solid var(--line);
-  background:var(--bg2);
+  background:#0d0d10;
   display:flex;flex-direction:column;
   overflow:hidden;
+  position:relative;
 }
 #evidence-header{
   flex-shrink:0;
-  padding:10px 14px 8px;
+  padding:8px 14px 7px;
   border-bottom:1px solid var(--line);
   display:flex;align-items:center;justify-content:space-between;
+  background:#0d0d10;
+  z-index:2;
 }
-#evidence-title{
-  font-size:9px;letter-spacing:0.2em;text-transform:uppercase;
-  color:var(--text-muted);
+#evidence-title{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-muted);}
+#evidence-count{font-size:9px;color:var(--text-muted);letter-spacing:0.05em;}
+
+/* DESK SURFACE */
+#desk-surface{
+  flex:1;
+  position:relative;
+  overflow:hidden;
+  background:
+    repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(255,255,255,0.012) 39px,rgba(255,255,255,0.012) 40px),
+    repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(255,255,255,0.012) 39px,rgba(255,255,255,0.012) 40px),
+    radial-gradient(ellipse at 50% 110%,#1a1408 0%,#0d0d0c 60%,#090909 100%);
 }
-#evidence-count{
-  font-size:9px;color:var(--text-muted);letter-spacing:0.05em;
+#desk-surface::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 0%,rgba(255,220,120,0.04) 0%,transparent 70%);
 }
-#evidence-tray{
-  flex:1;overflow-y:auto;
-  padding:8px;
-  display:flex;flex-direction:column;gap:6px;
+#desk-empty-hint{
+  position:absolute;bottom:16px;left:0;right:0;
+  text-align:center;font-size:9px;color:var(--text-muted);
+  font-style:italic;letter-spacing:0.06em;line-height:1.8;
+  pointer-events:none;
 }
-#evidence-tray::-webkit-scrollbar{width:2px}
-#evidence-tray::-webkit-scrollbar-thumb{background:var(--line)}
-#evidence-empty{
-  padding:20px 10px;
-  font-size:10px;color:var(--text-muted);
-  text-align:center;line-height:1.8;
-  font-style:italic;
-}
-.ev-item{
-  border:1px solid var(--line);
-  background:var(--bg3);
-  padding:8px 10px;
+
+/* DESK OBJECTS */
+.desk-obj{
+  position:absolute;
   cursor:pointer;
-  transition:all 0.15s ease;
+  transition:transform 0.2s ease, filter 0.2s ease;
+  transform-origin:center bottom;
+  user-select:none;
+}
+.desk-obj:hover{
+  transform:translateY(-4px) rotate(0deg) scale(1.06) !important;
+  filter:brightness(1.25);
+  z-index:10 !important;
+}
+.desk-obj:hover .desk-obj-shadow{opacity:0.6;}
+.desk-obj-shadow{
+  position:absolute;bottom:-4px;left:4px;right:4px;height:6px;
+  background:rgba(0,0,0,0.6);border-radius:50%;filter:blur(4px);
+  transition:opacity 0.2s ease;opacity:0.35;
+}
+/* NEW pulse ring */
+.desk-obj.obj-new::after{
+  content:'';
+  position:absolute;inset:-4px;border-radius:2px;
+  border:1px solid var(--accent);
+  animation:objPulse 1.6s ease infinite;
+  pointer-events:none;
+}
+@keyframes objPulse{0%,100%{opacity:0.8;transform:scale(1)}50%{opacity:0.2;transform:scale(1.04)}}
+
+/* object visuals rendered as mini-documents */
+.obj-paper{
+  width:52px;height:66px;
+  background:#f0ebe0;
+  border:1px solid #c8c0a0;
+  position:relative;
+  overflow:hidden;
+  box-shadow:1px 2px 4px rgba(0,0,0,0.5);
+}
+.obj-paper::before{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 7px,rgba(0,0,0,0.06) 7px,rgba(0,0,0,0.06) 8px);
+}
+.obj-paper-lines{
+  position:absolute;top:8px;left:6px;right:6px;
+  display:flex;flex-direction:column;gap:5px;
+}
+.obj-paper-line{height:1px;background:rgba(0,0,0,0.15);}
+.obj-paper-line.thick{height:2px;background:rgba(0,0,0,0.25);}
+.obj-paper-stamp{
+  position:absolute;bottom:8px;right:4px;
+  font-size:6px;letter-spacing:0.1em;text-transform:uppercase;
+  border:1px solid;padding:1px 3px;transform:rotate(-8deg);
+}
+.obj-paper-stamp.red{border-color:#aa3030;color:#aa3030;}
+.obj-paper-stamp.blue{border-color:#304080;color:#304080;}
+.obj-badge-card{
+  width:46px;height:62px;
+  background:linear-gradient(160deg,#1a2a4a,#0c1828);
+  border:1px solid #2a3a5a;
+  box-shadow:1px 2px 6px rgba(0,0,0,0.7);
+  display:flex;flex-direction:column;align-items:center;
+  padding:5px 4px;gap:3px;
   position:relative;
 }
-.ev-item:hover{border-color:var(--accent);background:var(--surface);}
-.ev-item.ev-new::after{
-  content:'NEW';
-  position:absolute;top:6px;right:7px;
-  font-size:8px;letter-spacing:0.1em;color:var(--accent);
-  animation:blink 1.5s ease infinite;
+.obj-badge-stripe{
+  position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,#c87a7a,#c8a87a,#7ac8a8);
 }
+.obj-badge-photo{width:22px;height:26px;background:#0a1422;border:1px solid #2a3a5a;margin-top:4px;}
+.obj-badge-text{font-family:var(--mono);font-size:5px;color:#6a8aaa;letter-spacing:0.05em;text-align:center;line-height:1.5;}
+.obj-folder{
+  width:58px;height:46px;
+  background:#c8a050;
+  border:1px solid #a07830;
+  border-radius:0 2px 0 0;
+  position:relative;
+  box-shadow:1px 2px 5px rgba(0,0,0,0.6);
+}
+.obj-folder::before{
+  content:'';position:absolute;top:-6px;left:0;
+  width:20px;height:8px;
+  background:#c8a050;border:1px solid #a07830;
+  border-bottom:none;border-radius:2px 2px 0 0;
+}
+.obj-folder-label{
+  position:absolute;bottom:5px;left:5px;right:5px;
+  font-family:var(--mono);font-size:5.5px;color:#5a3a10;
+  letter-spacing:0.06em;text-transform:uppercase;line-height:1.4;
+}
+.obj-note-paper{
+  width:50px;height:58px;
+  background:#f8f4e0;
+  border:1px solid #d0c8a8;
+  box-shadow:2px 2px 5px rgba(0,0,0,0.5);
+  position:relative;overflow:hidden;
+}
+.obj-note-paper::before{
+  content:'';position:absolute;left:10px;top:0;bottom:0;width:1px;
+  background:rgba(200,100,100,0.25);
+}
+.obj-note-lines{position:absolute;top:8px;left:14px;right:6px;display:flex;flex-direction:column;gap:6px;}
+.obj-note-line{height:1px;background:rgba(0,0,0,0.12);}
+.obj-chip{
+  width:44px;height:34px;
+  background:#1a1a28;
+  border:1px solid #2a2a40;
+  box-shadow:1px 2px 5px rgba(0,0,0,0.7);
+  position:relative;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+}
+.obj-chip-inner{
+  width:20px;height:14px;
+  background:#2a3020;
+  border:1px solid #3a4030;
+  display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;padding:2px;
+}
+.obj-chip-pin{background:#8a9040;border-radius:1px;}
+.obj-label{
+  position:absolute;
+  bottom:-16px;left:50%;transform:translateX(-50%);
+  white-space:nowrap;
+  font-size:8px;color:var(--text-muted);
+  letter-spacing:0.06em;font-family:var(--mono);
+}
+
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
-.ev-item.ev-unread{border-color:rgba(200,168,122,0.3);}
-.ev-icon{font-size:14px;margin-bottom:4px;display:block;}
-.ev-name{font-size:10px;color:var(--text);letter-spacing:0.05em;line-height:1.4;}
-.ev-type{font-size:9px;color:var(--text-muted);letter-spacing:0.08em;text-transform:uppercase;margin-top:2px;}
+
+/* ACTION CHOICES — physical/bold options */
+.choice-btn.action-choice{
+  border-color:rgba(200,168,122,0.2);
+  background:rgba(200,168,122,0.03);
+  letter-spacing:0.04em;
+}
+.choice-btn.action-choice .choice-prefix{color:rgba(200,168,122,0.5);}
+.choice-btn.action-choice:hover{border-color:var(--accent);color:var(--accent);}
+.choice-btn.action-choice:hover::before{background:var(--accent);}
+.choice-btn.locked-choice{
+  opacity:0.35;cursor:default;
+  border-style:dashed;
+}
+.choice-btn.locked-choice:hover{border-color:var(--line);color:var(--text);}
+.choice-btn.locked-choice:hover::before{width:0;}
+.choice-btn.unlocked-flash{
+  animation:unlockFlash 0.6s ease;
+}
+@keyframes unlockFlash{0%{border-color:var(--accent);color:var(--accent);opacity:1}100%{}}
+.lock-hint{font-size:9px;color:var(--text-muted);font-style:italic;margin-left:4px;}
 
 /* EVIDENCE VIEWER — full-panel overlay on right col */
 #evidence-viewer{
@@ -405,11 +539,11 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
     <!-- RIGHT: evidence / objects panel -->
     <div id="evidence-col">
       <div id="evidence-header">
-        <span id="evidence-title">Evidence</span>
-        <span id="evidence-count">0 items</span>
+        <span id="evidence-title">Field Desk</span>
+        <span id="evidence-count">—</span>
       </div>
-      <div id="evidence-tray">
-        <div id="evidence-empty">No items collected.<br>Examine objects<br>during the scene.</div>
+      <div id="desk-surface">
+        <div id="desk-empty-hint">Objects will appear<br>as the scene develops.</div>
       </div>
       <div id="evidence-viewer">
         <div id="ev-view-header">
@@ -1047,231 +1181,296 @@ function addMessage(speaker,text,cls=''){
   });
 }
 
-function showChoices(choices){
+function showChoices(choices, isRefresh=false){
   const list=document.getElementById('choice-list');
   const label=document.getElementById('choices-label');
   list.innerHTML='';label.style.opacity='1';
-  const prefixes=['A','B','C','D'];
+  pendingChoices=choices;
+  const prefixes=['A','B','C','D','E'];
   choices.forEach((c,i)=>{
+    const isLocked=c.requiresDoc && !readIds.has(c.requiresDoc);
     const btn=document.createElement('button');
-    btn.className='choice-btn'+(c.dangerous?' danger-choice':'');
-    btn.innerHTML=`<span class="choice-prefix">[${prefixes[i]}]</span>${c.text}`;
-    btn.onclick=()=>makeChoice(c);
+    let cls='choice-btn';
+    if(c.type==='action') cls+=' action-choice';
+    if(c.dangerous) cls+=' danger-choice';
+    if(isLocked) cls+=' locked-choice';
+    if(isRefresh && !isLocked) cls+=' unlocked-flash';
+    btn.className=cls;
+    const prefix=`<span class="choice-prefix">[${prefixes[i]}]</span>`;
+    const hint=isLocked
+      ? `<span class="lock-hint">[read ${EVIDENCE_ITEMS[c.requiresDoc]?.shortName||'document'} first]</span>`
+      : '';
+    btn.innerHTML=`${prefix}${c.text}${hint}`;
+    if(!isLocked){
+      btn.onclick=()=>makeChoice(c);
+    } else {
+      btn.onclick=()=>{
+        const col=document.getElementById('evidence-col');
+        col.style.borderLeft='1px solid rgba(200,168,122,0.9)';
+        setTimeout(()=>col.style.borderLeft='1px solid var(--line)',700);
+      };
+    }
     list.appendChild(btn);
   });
-  // Auto-scroll dialogue so last message is visible above choices
   const dlg=document.getElementById('dialogue');
   requestAnimationFrame(()=>{ dlg.scrollTop=dlg.scrollHeight; });
 }
 
 // ═══════════════════════════════════════════════════════
-// EVIDENCE SYSTEM
+// EVIDENCE SYSTEM — desk objects removed below, rebuilt above
 // ═══════════════════════════════════════════════════════
-const EVIDENCE_DB={};   // id -> item definition
-const collectedIds=[];  // ordered list
+
+// ═══════════════════════════════════════════════════════
+// EVIDENCE / DESK SYSTEM
+// ═══════════════════════════════════════════════════════
+const EVIDENCE_DB={};
+const collectedIds=[];
+const readIds=new Set();      // items the player has actually opened
+let pendingChoices=null;      // current choice set, refreshed when docs read
+
+// Desk layout slots — varied positions/rotations for each slot index
+const DESK_SLOTS=[
+  {x:14, y:18,  rot:-4},
+  {x:82, y:12,  rot:3},
+  {x:150,y:22,  rot:-2},
+  {x:18, y:110, rot:5},
+  {x:90, y:100, rot:-6},
+  {x:155,y:95,  rot:2},
+  {x:30, y:195, rot:-3},
+  {x:110,y:188, rot:4},
+];
+
+// Visual builder for each object type on the desk surface
+function buildDeskObject(item,slotIdx){
+  const slot=DESK_SLOTS[slotIdx%DESK_SLOTS.length];
+  const wrap=document.createElement('div');
+  wrap.className='desk-obj'+(item._new?' obj-new':'');
+  wrap.style.cssText=`left:${slot.x}px;top:${slot.y}px;transform:rotate(${slot.rot}deg);z-index:${slotIdx+1}`;
+  wrap.innerHTML=buildObjVisual(item)+`<div class="desk-obj-shadow"></div><span class="obj-label">${item.shortName||item.name}</span>`;
+  wrap.onclick=()=>openEvidenceViewer(item.id);
+  return wrap;
+}
+
+function buildObjVisual(item){
+  switch(item.objType){
+    case 'paper': return `<div class="obj-paper">
+      <div class="obj-paper-lines">
+        <div class="obj-paper-line thick"></div>
+        <div class="obj-paper-line"></div><div class="obj-paper-line"></div>
+        <div class="obj-paper-line"></div><div class="obj-paper-line"></div>
+        <div class="obj-paper-line thick"></div>
+        <div class="obj-paper-line"></div><div class="obj-paper-line"></div>
+      </div>
+      <div class="obj-paper-stamp ${item.stampColor||'blue'}">${item.stampText||'DOC'}</div>
+    </div>`;
+    case 'badge': return `<div class="obj-badge-card">
+      <div class="obj-badge-stripe"></div>
+      <div class="obj-badge-photo"></div>
+      <div class="obj-badge-text">DIV. 7<br>CHEN, M.<br>CRISIS NEG.</div>
+    </div>`;
+    case 'folder': return `<div class="obj-folder">
+      <div class="obj-folder-label">${item.folderLabel||'FILE'}</div>
+    </div>`;
+    case 'note': return `<div class="obj-note-paper">
+      <div class="obj-note-lines">
+        <div class="obj-note-line"></div><div class="obj-note-line"></div>
+        <div class="obj-note-line"></div><div class="obj-note-line"></div>
+        <div class="obj-note-line"></div><div class="obj-note-line"></div>
+      </div>
+    </div>`;
+    case 'chip': return `<div class="obj-chip">
+      <div class="obj-chip-inner">
+        <div class="obj-chip-pin"></div><div class="obj-chip-pin"></div><div class="obj-chip-pin"></div>
+        <div class="obj-chip-pin"></div><div class="obj-chip-pin"></div><div class="obj-chip-pin"></div>
+      </div>
+    </div>`;
+    default: return `<div class="obj-paper"><div class="obj-paper-lines"><div class="obj-paper-line thick"></div></div></div>`;
+  }
+}
 
 const EVIDENCE_ITEMS={
   'case_file_7_19':{
-    name:'Case File 7-19',
-    type:'Document',
-    icon:'📋',
-    render:()=>`
-      <div class="ev-doc">
-        <div class="ev-doc-paper">
-          <div class="ev-doc-field"><div class="ev-doc-field-label">Division</div><div class="ev-doc-field-val">DIVISION 7 — Crisis Response</div></div>
-          <hr class="ev-doc-divider">
-          <div class="ev-doc-field"><div class="ev-doc-field-label">Case Number</div><div class="ev-doc-field-val">7-19 / Active</div></div>
-          <div class="ev-doc-field"><div class="ev-doc-field-label">Subject</div><div class="ev-doc-field-val">KAEL, Thomas A. — DOB 1990.03.07</div></div>
-          <div class="ev-doc-field"><div class="ev-doc-field-label">Former Employer</div><div class="ev-doc-field-val">Vantex Corp — Systems Integrity Dept.</div></div>
-          <div class="ev-doc-field"><div class="ev-doc-field-label">Location</div><div class="ev-doc-field-val">Harmon Tower, Roof — Floor 34</div></div>
-          <hr class="ev-doc-divider">
-          <div class="ev-doc-field"><div class="ev-doc-field-label">Incident</div><div class="ev-doc-field-val">Subject accessed roof at 21:47. No prior incidents on record. No weapons detected.</div></div>
-          <div class="ev-doc-field"><div class="ev-doc-field-label">Note</div><div class="ev-doc-field-val">Psych. flag: <span class="ev-redact">███████████</span> (see attached eval, March 14)</div></div>
-          <div class="ev-doc-stamp red">ACTIVE INCIDENT</div>
-        </div>
-      </div>`
-  },
-  'thomas_vantex_record':{
-    name:'Vantex Personnel Record',
-    type:'Document',
-    icon:'📄',
-    render:()=>`
-      <div class="ev-doc">
-        <div class="ev-doc-paper">
-          <div class="ev-doc-field"><div class="ev-doc-field-label">Employee</div><div class="ev-doc-field-val">KAEL, Thomas — ID #VX-04471</div></div>
-          <div class="ev-doc-field"><div class="ev-doc-field-label">Role</div><div class="ev-doc-field-val">Data Integrity Specialist, Tier 3</div></div>
-          <div class="ev-doc-field"><div class="ev-doc-field-label">Status</div><div class="ev-doc-field-val">MEDICAL LEAVE (indefinite)</div></div>
-          <hr class="ev-doc-divider">
-          <div class="ev-doc-field"><div class="ev-doc-field-label">Leave Reason</div><div class="ev-doc-field-val">Voluntary psychiatric eval, 14-MAR. Suicidal ideation noted.</div></div>
-          <div class="ev-doc-field"><div class="ev-doc-field-label">Authorised by</div><div class="ev-doc-field-val">Dr. M. Chen — Div. 7</div></div>
-          <div class="ev-doc-field"><div class="ev-doc-field-label">Timestamp</div><div class="ev-doc-field-val">14-MAR 23:41:07 (AMENDED)</div></div>
-          <hr class="ev-doc-divider">
-          <div style="font-size:9px;color:#8a7060;font-style:italic">Original entry: AMENDED ×3. See revision log <span class="ev-redact">███</span></div>
-          <div class="ev-doc-stamp red">RESTRICTED</div>
-        </div>
-      </div>`
+    id:'case_file_7_19',name:'Case File 7-19',shortName:'Case 7-19',
+    type:'Document',objType:'folder',folderLabel:'CASE 7-19\nKAEL T.',stampColor:'red',stampText:'ACTIVE',
+    unlocksChoice:'read_case_file',
+    render:()=>`<div class="ev-doc"><div class="ev-doc-paper">
+      <div class="ev-doc-field"><div class="ev-doc-field-label">Division</div><div class="ev-doc-field-val">DIVISION 7 — Crisis Response</div></div>
+      <hr class="ev-doc-divider">
+      <div class="ev-doc-field"><div class="ev-doc-field-label">Case Number</div><div class="ev-doc-field-val">7-19 / Active</div></div>
+      <div class="ev-doc-field"><div class="ev-doc-field-label">Subject</div><div class="ev-doc-field-val">KAEL, Thomas A. — DOB 1990.03.07</div></div>
+      <div class="ev-doc-field"><div class="ev-doc-field-label">Former Employer</div><div class="ev-doc-field-val">Vantex Corp — Systems Integrity</div></div>
+      <div class="ev-doc-field"><div class="ev-doc-field-label">Note</div><div class="ev-doc-field-val">Psych. flag: <span class="ev-redact">███████████</span><br>(see eval, March 14)</div></div>
+      <div class="ev-doc-field"><div class="ev-doc-field-label">Known associates</div><div class="ev-doc-field-val"><span class="ev-redact">████████████████</span></div></div>
+      <div class="ev-doc-stamp red">ACTIVE INCIDENT</div>
+    </div></div>`
   },
   'chen_id_badge':{
-    name:'Division 7 ID Badge',
-    type:'Identification',
-    icon:'🪪',
-    render:()=>`
-      <div class="ev-doc" style="padding:10px">
-        <div class="ev-badge">
-          <div class="ev-badge-title">Division 7<br>Crisis Response Unit</div>
-          <div class="ev-badge-photo" id="badge-photo-el">PHOTO<br>ID</div>
-          <div class="ev-badge-field">Name: <span>Dr. Mara Chen</span></div>
-          <div class="ev-badge-field">Level: <span>Senior Negotiator</span></div>
-          <div class="ev-badge-field">Since: <span>2019.04.11</span></div>
-          <div class="ev-badge-field">Clearance: <span>L3-PSYCH</span></div>
-          <div style="margin-top:10px;font-size:8px;color:#4a6a8a;border-top:1px solid #1a2a4a;padding-top:8px">Batch auth. — MAR records<br>Last signed: <span style="color:#c87a7a" id="badge-sign-date">14-MAR 23:41</span></div>
-        </div>
-        <div style="margin-top:8px;font-size:9px;color:var(--text-muted);font-style:italic;text-align:center">Your badge. Something about the photo<br>feels slightly wrong tonight.</div>
-      </div>`
+    id:'chen_id_badge',name:'Division 7 ID Badge',shortName:'My Badge',
+    type:'Identification',objType:'badge',
+    unlocksChoice:'read_badge',
+    render:()=>`<div class="ev-doc" style="padding:10px"><div class="ev-badge">
+      <div class="ev-badge-title">Division 7<br>Crisis Response Unit</div>
+      <div class="ev-badge-photo">PHOTO ID</div>
+      <div class="ev-badge-field">Name: <span>Dr. Mara Chen</span></div>
+      <div class="ev-badge-field">Level: <span>Senior Negotiator</span></div>
+      <div class="ev-badge-field">Clearance: <span>L3-PSYCH</span></div>
+      <div style="margin-top:10px;font-size:8px;color:#4a6a8a;border-top:1px solid #1a2a4a;padding-top:8px">Batch auth. — MAR records<br>Last signed: <span style="color:#c87a7a">14-MAR 23:41</span></div>
+    </div>
+    <div style="margin-top:8px;font-size:9px;color:var(--text-muted);font-style:italic;text-align:center;padding:0 8px">Something about the photo feels slightly wrong tonight.</div>
+    </div>`
+  },
+  'thomas_vantex_record':{
+    id:'thomas_vantex_record',name:'Vantex Personnel Record',shortName:'Vantex Doc',
+    type:'Document',objType:'paper',stampColor:'red',stampText:'RESTRICTED',
+    unlocksChoice:'read_vantex',
+    render:()=>`<div class="ev-doc"><div class="ev-doc-paper">
+      <div class="ev-doc-field"><div class="ev-doc-field-label">Employee</div><div class="ev-doc-field-val">KAEL, Thomas — ID #VX-04471</div></div>
+      <div class="ev-doc-field"><div class="ev-doc-field-label">Status</div><div class="ev-doc-field-val">MEDICAL LEAVE (indefinite)</div></div>
+      <div class="ev-doc-field"><div class="ev-doc-field-label">Leave Reason</div><div class="ev-doc-field-val">Voluntary psych eval, 14-MAR.<br>Suicidal ideation noted.</div></div>
+      <div class="ev-doc-field"><div class="ev-doc-field-label">Authorised by</div><div class="ev-doc-field-val" style="color:#c87a7a">Dr. M. Chen — Div. 7</div></div>
+      <div class="ev-doc-field"><div class="ev-doc-field-label">Timestamp</div><div class="ev-doc-field-val">14-MAR 23:41:07 (AMENDED)</div></div>
+      <hr class="ev-doc-divider">
+      <div style="font-size:9px;color:#8a7060;font-style:italic">Original entry: AMENDED ×3.<br>See revision log <span class="ev-redact">███</span></div>
+      <div class="ev-doc-stamp red">RESTRICTED</div>
+    </div></div>`
   },
   'march14_batch':{
-    name:'Batch Sign-off Log',
-    type:'System Record',
-    icon:'💾',
+    id:'march14_batch',name:'Batch Sign-off Log',shortName:'Batch Log',
+    type:'System Record',objType:'chip',
+    unlocksChoice:'read_batch',
     render:()=>{
-      const r=G.reliability;
-      const corrupted=r<50;
-      return `<div class="ev-doc ${corrupted?'ev-corrupted':''}">
-        <div class="ev-doc-paper">
-          <div class="ev-doc-field"><div class="ev-doc-field-label">System</div><div class="ev-doc-field-val">Div7-DocAuth v2.1.4</div></div>
-          <div class="ev-doc-field"><div class="ev-doc-field-label">Date</div><div class="ev-doc-field-val">14-MAR — Session 22:58–23:44</div></div>
-          <div class="ev-doc-field"><div class="ev-doc-field-label">Operator</div><div class="ev-doc-field-val">chen.m@div7.gov</div></div>
-          <hr class="ev-doc-divider">
-          <div class="ev-doc-field"><div class="ev-doc-field-label">Documents signed</div><div class="ev-doc-field-val">${corrupted?'<span class="ev-redact">██</span>':'47'} of 47</div></div>
-          <div class="ev-doc-field"><div class="ev-doc-field-label">Avg. review time</div><div class="ev-doc-field-val">${corrupted?'<span class="ev-redact">████</span>':'00:01:04 per document'}</div></div>
-          <div class="ev-doc-field"><div class="ev-doc-field-label">Doc #31</div><div class="ev-doc-field-val">KAEL, T. — Psych. Eval. Auth.<br>Review time: <span style="color:#c87a7a">00:00:03</span></div></div>
-          <hr class="ev-doc-divider">
-          <div style="font-size:9px;color:#8a7060">Three seconds. You spent three seconds on document 31.</div>
-          <div class="ev-doc-stamp ${corrupted?'red':'blue'}">${corrupted?'DATA ERROR':'VERIFIED'}</div>
-        </div>
-      </div>`;
+      const corrupted=G.reliability<50;
+      return `<div class="ev-doc ${corrupted?'ev-corrupted':''}"><div class="ev-doc-paper">
+        <div class="ev-doc-field"><div class="ev-doc-field-label">System</div><div class="ev-doc-field-val">Div7-DocAuth v2.1.4</div></div>
+        <div class="ev-doc-field"><div class="ev-doc-field-label">Date</div><div class="ev-doc-field-val">14-MAR — 22:58–23:44</div></div>
+        <div class="ev-doc-field"><div class="ev-doc-field-label">Operator</div><div class="ev-doc-field-val">chen.m@div7.gov</div></div>
+        <hr class="ev-doc-divider">
+        <div class="ev-doc-field"><div class="ev-doc-field-label">Documents signed</div><div class="ev-doc-field-val">${corrupted?'<span class="ev-redact">██</span>':'47'} of 47</div></div>
+        <div class="ev-doc-field"><div class="ev-doc-field-label">Avg. review time</div><div class="ev-doc-field-val">${corrupted?'<span class="ev-redact">████</span>':'00:01:04 per doc'}</div></div>
+        <div class="ev-doc-field"><div class="ev-doc-field-label">Doc #31 — Kael eval</div><div class="ev-doc-field-val">Review time: <span style="color:#c87a7a">00:00:03</span></div></div>
+        <hr class="ev-doc-divider">
+        <div style="font-size:9px;color:#8a7060">Three seconds. You spent three seconds on document 31.</div>
+        <div class="ev-doc-stamp ${corrupted?'red':'blue'}">${corrupted?'DATA ERROR':'VERIFIED'}</div>
+      </div></div>`;
     }
   },
   'radio_transcript':{
-    name:'Radio Transcript',
-    type:'Audio Log',
-    icon:'📡',
-    render:()=>`
-      <div class="ev-doc" style="padding:8px">
-        <div class="ev-transcript">
-          <div style="color:#3a4a58;margin-bottom:8px;font-size:8px;letter-spacing:0.1em">DIV7-COMMS // CASE 7-19 // ENCRYPTED</div>
-          <div><span class="ev-transcript-ts">21:52</span><span class="ev-transcript-speaker">DISPATCH:</span> Chen. You're up. Uniform says twenty min, no movement.</div>
-          <div style="margin-top:6px"><span class="ev-transcript-ts">21:54</span><span class="ev-transcript-speaker">CHEN:</span> On roof. Visual confirmed.</div>
-          <div style="margin-top:6px"><span class="ev-transcript-ts">22:06</span><span class="ev-transcript-speaker">DISPATCH:</span> Status?</div>
-          <div style="margin-top:4px"><span class="ev-transcript-ts">22:06</span><span class="ev-transcript-speaker">CHEN:</span> [response logged]</div>
-          <div style="margin-top:6px"><span class="ev-transcript-ts">22:07</span><span class="ev-transcript-speaker">DISPATCH:</span> Do not engage conspiracy narratives. Focus on subject.</div>
-          <div style="margin-top:6px"><span class="ev-transcript-ts">22:07</span><span class="ev-transcript-speaker">CHEN:</span> [acknowledged]</div>
-          <div style="margin-top:10px"><span class="ev-transcript-ts">22:08</span><span class="ev-transcript-speaker" style="color:#c87a7a">DISPATCH:</span> <span style="color:#c87a7a">Note added to file: Subject claims knowledge of negotiator. Monitor for compromise.</span></div>
-          <div class="ev-transcript-note">* Dispatch added a flag to YOUR file.<br>* You were not informed of this.</div>
-        </div>
-      </div>`
+    id:'radio_transcript',name:'Radio Transcript',shortName:'Radio Log',
+    type:'Audio Log',objType:'paper',stampColor:'blue',stampText:'COMMS',
+    unlocksChoice:'read_radio',
+    render:()=>`<div class="ev-doc" style="padding:8px"><div class="ev-transcript">
+      <div style="color:#3a4a58;margin-bottom:8px;font-size:8px;letter-spacing:0.1em">DIV7-COMMS // CASE 7-19 // ENCRYPTED</div>
+      <div><span class="ev-transcript-ts">21:52</span><span class="ev-transcript-speaker">DISPATCH:</span> Chen. You're up. Twenty min, no movement.</div>
+      <div style="margin-top:5px"><span class="ev-transcript-ts">21:54</span><span class="ev-transcript-speaker">CHEN:</span> On roof. Visual confirmed.</div>
+      <div style="margin-top:5px"><span class="ev-transcript-ts">22:07</span><span class="ev-transcript-speaker">DISPATCH:</span> Do not engage conspiracy narratives.</div>
+      <div style="margin-top:8px"><span class="ev-transcript-ts">22:08</span><span class="ev-transcript-speaker" style="color:#c87a7a">DISPATCH:</span> <span style="color:#c87a7a">Note added to file: Subject claims knowledge of negotiator. Monitor for compromise.</span></div>
+      <div class="ev-transcript-note">* Dispatch flagged YOUR file.<br>* You were not informed.</div>
+    </div></div>`
   },
   'elisa_park_note':{
-    name:'Elisa Park — Note',
-    type:'Handwritten',
-    icon:'✉️',
-    render:()=>`
-      <div class="ev-doc" style="padding:8px">
-        <div class="ev-note">
-          <span class="ev-note-line">Thomas —</span>
-          <span class="ev-note-line" style="margin-top:8px">I don't know how long</span>
-          <span class="ev-note-line">I'll be able to keep</span>
-          <span class="ev-note-line">sending these out.</span>
-          <span class="ev-note-line" style="margin-top:8px">The thing they do is</span>
-          <span class="ev-note-line">make you unsure. Not</span>
-          <span class="ev-note-line">scared. Just... unsure.</span>
-          <span class="ev-note-line" style="margin-top:8px">I filed a correction</span>
-          <span class="ev-note-line">seven times. Each time</span>
-          <span class="ev-note-line">it came back worse.</span>
-          <span class="ev-note-line" style="margin-top:8px">Don't let them make</span>
-          <span class="ev-note-line">you unsure of yourself.</span>
-          <span class="ev-note-line">That's the whole game.</span>
-          <span class="ev-note-line" style="margin-top:12px;color:#8a7060">— E</span>
-        </div>
-        <div style="margin-top:8px;font-size:9px;color:var(--text-muted);text-align:center;font-style:italic">Found in Thomas's coat pocket.<br>Brackenmore Psych. postmark.</div>
-      </div>`
+    id:'elisa_park_note',name:"Elisa Park's Note",shortName:'E. Park Note',
+    type:'Handwritten',objType:'note',
+    unlocksChoice:'read_elisa',
+    render:()=>`<div class="ev-doc" style="padding:8px"><div class="ev-note">
+      <span class="ev-note-line">Thomas —</span>
+      <span class="ev-note-line" style="margin-top:8px">The thing they do is make</span>
+      <span class="ev-note-line">you unsure. Not scared.</span>
+      <span class="ev-note-line">Just... unsure.</span>
+      <span class="ev-note-line" style="margin-top:8px">I filed a correction seven</span>
+      <span class="ev-note-line">times. Each time it came</span>
+      <span class="ev-note-line">back worse.</span>
+      <span class="ev-note-line" style="margin-top:8px">Don't let them make you</span>
+      <span class="ev-note-line">unsure of yourself.</span>
+      <span class="ev-note-line">That's the whole game.</span>
+      <span class="ev-note-line" style="margin-top:12px;color:#8a7060">— E</span>
+    </div>
+    <div style="margin-top:8px;font-size:9px;color:var(--text-muted);text-align:center;font-style:italic;padding:0 8px">Brackenmore Psych. postmark.<br>Found in Thomas's coat pocket.</div>
+    </div>`
   },
   'seventeen_list':{
-    name:'The Seventeen',
-    type:'Research',
-    icon:'📊',
-    render:()=>`
-      <div class="ev-doc">
-        <div class="ev-doc-paper">
-          <div style="font-size:9px;font-weight:500;margin-bottom:8px;color:#1a1a14">PATTERN ANALYSIS — DRAFT</div>
-          <div style="font-size:8px;color:#6a6050;margin-bottom:10px">Compiled by: T. Kael. 7 months research.</div>
-          <div style="font-size:9px;line-height:1.8">
-            <div style="display:grid;grid-template-columns:1fr 2fr;gap:2px 8px;font-size:8px">
-              <div style="color:#8a7060">NAME</div><div style="color:#8a7060">STATUS</div>
-              <div>Park, E.</div><div style="color:#c87a7a">Brackenmore Psych.</div>
-              <div>Velarde, O.</div><div style="color:#c87a7a">Unemployable</div>
-              <div>Nguyen, S.</div><div style="color:#c87a7a">Unemployable</div>
-              <div>Diallo, A.</div><div style="color:#8a8040">Under review</div>
-              <div>Morrison, C.</div><div style="color:#c87a7a">Brackenmore Psych.</div>
-              <div><span class="ev-redact">█████████</span></div><div style="color:#c87a7a">Unknown</div>
-              <div><span class="ev-redact">█████████</span></div><div style="color:#c87a7a">Unknown</div>
-              <div colspan="2" style="color:#6a6050;font-style:italic;margin-top:4px">+ 10 further entries redacted<br>by [system — auto-moderation]</div>
-            </div>
-          </div>
-          <hr class="ev-doc-divider">
-          <div style="font-size:8px;color:#8a7060">Common thread: all filed complaints<br>via systems passing through Div. 7.</div>
-          <div class="ev-doc-stamp red">UNVERIFIED</div>
-        </div>
-      </div>`
+    id:'seventeen_list',name:'The Seventeen',shortName:'The 17',
+    type:'Research',objType:'folder',folderLabel:'THE 17\nKAEL RESEARCH',stampColor:'red',stampText:'UNVERIFIED',
+    unlocksChoice:'read_seventeen',
+    render:()=>`<div class="ev-doc"><div class="ev-doc-paper">
+      <div style="font-size:9px;font-weight:500;margin-bottom:8px">PATTERN ANALYSIS — DRAFT</div>
+      <div style="font-size:8px;color:#6a6050;margin-bottom:10px">Compiled by T. Kael. 7 months.</div>
+      <div style="display:grid;grid-template-columns:1fr 2fr;gap:2px 8px;font-size:8px">
+        <div style="color:#8a7060">NAME</div><div style="color:#8a7060">STATUS</div>
+        <div>Park, E.</div><div style="color:#c87a7a">Brackenmore Psych.</div>
+        <div>Velarde, O.</div><div style="color:#c87a7a">Unemployable</div>
+        <div>Nguyen, S.</div><div style="color:#c87a7a">Unemployable</div>
+        <div>Diallo, A.</div><div style="color:#8a8040">Under review</div>
+        <div>Morrison, C.</div><div style="color:#c87a7a">Brackenmore Psych.</div>
+        <div><span class="ev-redact">█████████</span></div><div style="color:#c87a7a">Unknown</div>
+        <div colspan="2" style="color:#6a6050;font-style:italic;margin-top:4px">+10 entries redacted<br>[system auto-moderation]</div>
+      </div>
+      <hr class="ev-doc-divider">
+      <div style="font-size:8px;color:#8a7060">Common thread: all complaints via systems passing through Div. 7.</div>
+      <div class="ev-doc-stamp red">UNVERIFIED</div>
+    </div></div>`
   },
 };
 
 function addEvidence(id){
   if(collectedIds.includes(id)) return;
+  const item=EVIDENCE_ITEMS[id];
+  if(!item) return;
+  item._new=true;
   collectedIds.push(id);
-  EVIDENCE_DB[id]=EVIDENCE_ITEMS[id];
-  renderEvidenceTray();
-  // Pulse the tray to signal new item
+  EVIDENCE_DB[id]=item;
+  renderDesk();
+  // Flash border
   const col=document.getElementById('evidence-col');
-  col.style.borderLeft='1px solid rgba(200,168,122,0.6)';
-  setTimeout(()=>col.style.borderLeft='1px solid var(--line)',1200);
-  // Play chime
+  col.style.borderLeft='1px solid rgba(200,168,122,0.7)';
+  setTimeout(()=>col.style.borderLeft='1px solid var(--line)',1400);
   if(audioInitialized) playMemoryChime(3);
 }
 
-function renderEvidenceTray(){
-  const tray=document.getElementById('evidence-tray');
-  const empty=document.getElementById('evidence-empty');
+function renderDesk(){
+  const surface=document.getElementById('desk-surface');
+  const hint=document.getElementById('desk-empty-hint');
   const countEl=document.getElementById('evidence-count');
-  countEl.textContent=collectedIds.length+' item'+(collectedIds.length!==1?'s':'');
-  tray.innerHTML='';
+  countEl.textContent=collectedIds.length+' object'+(collectedIds.length!==1?'s':'');
+  // Clear existing objects (not hint)
+  Array.from(surface.querySelectorAll('.desk-obj')).forEach(el=>el.remove());
   if(collectedIds.length===0){
-    tray.appendChild(empty||createEmptyEl());return;
+    if(hint) hint.style.display='block';
+    return;
   }
-  collectedIds.forEach(id=>{
+  if(hint) hint.style.display='none';
+  collectedIds.forEach((id,i)=>{
     const item=EVIDENCE_DB[id];
     if(!item) return;
-    const el=document.createElement('div');
-    el.className='ev-item'+(item._new?' ev-new ev-unread':'');
-    el.innerHTML=`<span class="ev-icon">${item.icon}</span><div class="ev-name">${item.name}</div><div class="ev-type">${item.type}</div>`;
-    el.onclick=()=>openEvidenceViewer(id);
-    tray.appendChild(el);
+    const obj=buildDeskObject(item,i);
+    surface.appendChild(obj);
   });
 }
 
 function openEvidenceViewer(id){
   const item=EVIDENCE_DB[id];
   if(!item) return;
+  const wasNew=item._new;
   item._new=false;
-  renderEvidenceTray();
+  renderDesk();
   document.getElementById('ev-view-title').textContent=item.name;
   document.getElementById('ev-view-body').innerHTML=item.render();
   document.getElementById('evidence-viewer').classList.add('open');
   if(audioInitialized) playPageTurn();
+  // Mark as read and unlock any waiting choices
+  if(!readIds.has(id)){
+    readIds.add(id);
+    if(item.unlocksChoice) refreshChoices();
+  }
 }
 
 function closeEvidenceViewer(){
   document.getElementById('evidence-viewer').classList.remove('open');
+}
+
+// Called after reading a doc to re-render the active choice list
+function refreshChoices(){
+  if(!pendingChoices) return;
+  showChoices(pendingChoices,true);
 }
 
 function playPageTurn(){
@@ -1381,11 +1580,22 @@ const STORY={
       {speaker:'THOMAS',text:'It means this is a script. You\'re following a script.',cls:'npc',pause:600},
     ],
     choices:[
-      {text:"I'm not following a script. I came because you're still here, and that matters to me.",reliability:0,flag:'empathy_open',next:'thomas_responds_empathy'},
+      {text:"I'm not following a script. I came because you're still here.",reliability:0,flag:'empathy_open',next:'thomas_responds_empathy'},
       {text:"What would you rather I do — leave?",reliability:-5,flag:'challenge_open',next:'thomas_responds_challenge'},
       {text:"My name is Mara. What's yours?",reliability:5,flag:'name_open',next:'thomas_responds_name'},
       {text:"...(Say nothing. Let him keep talking.)",reliability:3,flag:'silence_open',next:'thomas_responds_silence'},
+      {type:'action',text:"[Step closer to the edge. Close the distance.]",reliability:2,flag:'stepped_closer',next:'thomas_step_closer'},
     ]
+  },
+
+  thomas_step_closer:{
+    messages:[
+      {speaker:'DR. CHEN',text:'(You take three deliberate steps toward the ledge. Not threatening. Just present.)',cls:'memory'},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'Most people stay by the door.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'They think the distance is reassuring. It isn\'t.',cls:'npc'},
+    ],
+    auto:'thomas_file_moment',autoDelay:600,
   },
 
   thomas_responds_empathy:{
@@ -1433,8 +1643,30 @@ const STORY={
       {text:"That sounds like a clerical error. It happens — systems make mistakes.",reliability:-10,flag:'dismissed_file',next:'thomas_angry_dismiss'},
       {text:"Someone put that record there. Who had access to your file?",reliability:5,flag:'investigated_file',next:'thomas_investigates'},
       {text:"Did you report it? Try to get it corrected?",reliability:3,flag:'asked_process',next:'thomas_process'},
-      {text:"What did the file say about you — exactly?",reliability:2,flag:'asked_details',next:'thomas_details'},
+      {text:"[Pull out Case File 7-19.] The file I have says no prior incidents. Nothing like this.",reliability:4,flag:'used_case_file',requiresDoc:'case_file_7_19',next:'thomas_chen_pulls_file'},
+      {type:'action',text:"[Hold up a hand — stop him mid-sentence.]",reliability:-3,flag:'interrupted',next:'thomas_interrupted'},
     ]
+  },
+
+  thomas_chen_pulls_file:{
+    messages:[
+      {speaker:'DR. CHEN',text:'(You hold the folder out toward him. He can see it but not read it from there.)',cls:'memory'},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'You brought my file up here.',cls:'npc',pause:400},
+      {speaker:'THOMAS',text:'Of course you did. The file that says I\'m fine. No prior incidents.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'Did you read it? Or did you just carry it?',cls:'npc',pause:800},
+    ],
+    auto:'thomas_reveals_chen',autoDelay:400,
+  },
+
+  thomas_interrupted:{
+    messages:[
+      {speaker:'DR. CHEN',text:'(He stops. A long pause. The wind fills it.)',cls:'memory'},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:900},
+      {speaker:'THOMAS',text:'My last negotiator did that. Talked over me every time I got near something real.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'Is that what you\'re doing?',cls:'npc',pause:500},
+    ],
+    auto:'thomas_reveals_chen',autoDelay:400,
   },
 
   thomas_angry_dismiss:{
@@ -1485,11 +1717,35 @@ const STORY={
       {speaker:'THOMAS',text:'So you see why I find it... interesting... that they sent you.',cls:'npc',pause:800},
     ],
     choices:[
-      {text:"I've never seen your file. That signature is a forgery or a mistake — I have no record of you.",reliability:-10,flag:'denied_signature',next:'thomas_on_denial'},
-      {text:"(Don't respond yet. Think. Could you have signed something without knowing what it was?)",reliability:0,flag:'uncertain_signature',next:'thomas_on_uncertainty'},
-      {text:"I don't know what that means. But if someone used my name — that's serious. I want to understand this.",reliability:5,flag:'open_signature',next:'thomas_on_openness'},
-      {text:"Where did you get the file? Show me.",reliability:3,flag:'asked_proof',next:'thomas_has_proof'},
+      {text:"I've never seen your file. That signature is a forgery or a mistake.",reliability:-10,flag:'denied_signature',next:'thomas_on_denial'},
+      {text:"(Don't respond. Think. Could you have signed something without knowing?)",reliability:0,flag:'uncertain_signature',next:'thomas_on_uncertainty'},
+      {text:"I don't know what that means. But if someone used my name — that's serious.",reliability:5,flag:'open_signature',next:'thomas_on_openness'},
+      {text:"[Show him the Vantex record.] This is the document. Is this what you found?",reliability:6,flag:'showed_vantex',requiresDoc:'thomas_vantex_record',next:'thomas_chen_shows_doc'},
+      {type:'action',text:"[Reach for your radio.]",reliability:-8,flag:'reached_radio',next:'thomas_radio_grab'},
     ]
+  },
+
+  thomas_chen_shows_doc:{
+    messages:[
+      {speaker:'DR. CHEN',text:'(You hold the paper out, flattened against the wind. He looks at it from five feet away.)',cls:'memory'},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'Turn it over.',cls:'npc',pause:400},
+      {speaker:'DR. CHEN',text:'(You turn it over. The back is blank. He exhales.)',cls:'memory'},
+      {speaker:'THOMAS',text:'They gave you the clean version.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'The revision log is on the back of mine. Three amendments. Yours has been wiped.',cls:'npc',pause:800},
+    ],
+    auto:'thomas_on_openness',autoDelay:400,
+  },
+
+  thomas_radio_grab:{
+    setup:async()=>{triggerGlitch(0.5);},
+    messages:[
+      {speaker:'THOMAS',text:'Don\'t.',cls:'npc',pause:300},
+      {speaker:'THOMAS',text:'If you call this in right now I step off.',cls:'npc',pause:600},
+      {speaker:'DR. CHEN',text:'(You stop. Hand still on the radio. The wind is very loud.)',cls:'memory'},
+      {speaker:'THOMAS',text:'I\'m not threatening you. I\'m telling you how it ends if you make this official before I\'m ready.',cls:'npc',pause:800},
+    ],
+    auto:'thomas_on_uncertainty',autoDelay:400,
   },
 
   // ─── CHAPTER 3: THE FILE ────────────────────────────
@@ -1608,7 +1864,35 @@ const STORY={
       {text:"I need to know if my supervisor knew about this. If Division 7 was used as cover —",reliability:5,flag:'confronts_division',next:'chen_radio_call'},
       {text:"(Let him keep talking. You need more time to think.)",reliability:3,flag:'buys_time',next:'chen_thinks_more'},
       {text:"Stop. I can't let this compromise the negotiation. You need to come down.",reliability:-10,flag:'closes_down',next:'chen_shuts_down'},
+      {text:"[Pull out the Batch Log.] Three seconds. I spent three seconds on document 31.",reliability:7,flag:'confronted_batch',requiresDoc:'march14_batch',next:'chen_confronts_batch'},
+      {type:'action',text:"[Sit down on the ledge beside him.]",reliability:5,flag:'sat_on_ledge',next:'chen_sits_ledge'},
     ]
+  },
+
+  chen_confronts_batch:{
+    setup:async()=>{playMemoryChime(1);},
+    messages:[
+      {speaker:'DR. CHEN',text:'(Your voice is steady. The paper shakes slightly in the wind.)',cls:'memory'},
+      {speaker:'DR. CHEN',text:'Three seconds. Document thirty-one. That\'s what the log says.',cls:'player'},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'You looked.',cls:'npc',pause:500},
+      {speaker:'DR. CHEN',text:'I looked.',cls:'player'},
+      {speaker:'THOMAS',text:'Most people wouldn\'t. Most people would keep the file closed.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'What does that tell you?',cls:'npc',pause:700},
+    ],
+    auto:'chen_radio_call',autoDelay:400,
+  },
+
+  chen_sits_ledge:{
+    messages:[
+      {speaker:'DR. CHEN',text:'(You walk to the ledge. Sit down on the concrete lip, feet on the building side. Next to him, not above him.)',cls:'memory'},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:900},
+      {speaker:'THOMAS',text:'You\'re not supposed to do that.',cls:'npc',pause:500},
+      {speaker:'DR. CHEN',text:'No.',cls:'player'},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'Okay.',cls:'npc',pause:400},
+    ],
+    auto:'chen_radio_call',autoDelay:400,
   },
 
   chen_thinks_more:{
@@ -1677,11 +1961,52 @@ const STORY={
       {speaker:'THOMAS',text:'All of their files passed through Division 7.',cls:'npc',pause:1000},
     ],
     choices:[
-      {text:"If that's true, then bringing you down tonight is the best thing I can do for both of us. Alive, you're a witness.",reliability:5,flag:'strategic_empathy',next:'thomas_strategic'},
-      {text:"Division 7 has hundreds of cases. This is pattern-matching from grief and desperation.",reliability:-15,flag:'dismissed_system',next:'thomas_system_dismissed'},
-      {text:"I believe you found something. But standing here doesn't release the information.",reliability:3,flag:'pragmatic_response',next:'thomas_pragmatic'},
-      {text:"Who are the seventeen? Give me names.",reliability:2,flag:'asked_names',next:'thomas_names'},
+      {text:"If that's true, alive you're a witness. Coming down is the most dangerous thing you can do to them.",reliability:5,flag:'strategic_empathy',next:'thomas_strategic'},
+      {text:"Division 7 has hundreds of cases. This is pattern-matching from grief.",reliability:-15,flag:'dismissed_system',next:'thomas_system_dismissed'},
+      {text:"I believe you found something. But standing here doesn't release it.",reliability:3,flag:'pragmatic_response',next:'thomas_pragmatic'},
+      {text:"[Hold up Elisa Park's note.] She said the same thing — 'that's the whole game.'",reliability:7,flag:'used_elisa_note',requiresDoc:'elisa_park_note',next:'thomas_elisa_moment'},
+      {text:"[Show him The Seventeen list.] Your research. Twelve of these names I can verify right now.",reliability:6,flag:'used_seventeen',requiresDoc:'seventeen_list',next:'thomas_seventeen_moment'},
+      {type:'action',text:"[Grab his wrist. Pull him back from the edge.]",reliability:-20,flag:'grabbed_thomas',dangerous:true,next:'thomas_grabbed'},
     ]
+  },
+
+  thomas_elisa_moment:{
+    messages:[
+      {speaker:'DR. CHEN',text:'(You hold out the note. The handwriting is hers. He recognizes it from ten feet away.)',cls:'memory'},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:900},
+      {speaker:'THOMAS',text:'Where did you get that.',cls:'npc',pause:400},
+      {speaker:'DR. CHEN',text:'Your coat pocket. I found it when I checked if you had anything sharp.',cls:'player'},
+      {speaker:'THOMAS',text:'Did you read it.',cls:'npc',pause:400},
+      {speaker:'DR. CHEN',text:'Yes.',cls:'player'},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'Okay.',cls:'npc'},
+    ],
+    auto:'thomas_strategic',autoDelay:400,
+  },
+
+  thomas_seventeen_moment:{
+    messages:[
+      {speaker:'DR. CHEN',text:'(You hold the list up. The auto-moderated entries catch the light.)',cls:'memory'},
+      {speaker:'THOMAS',text:'The redacted ones.',cls:'npc',pause:400},
+      {speaker:'THOMAS',text:'The system flagged them before I could even save a copy. I had to write those from memory.',cls:'npc',pause:600},
+      {speaker:'DR. CHEN',text:'That\'s evidence of something. That\'s your strongest card.',cls:'player'},
+      {speaker:'THOMAS',text:'I know. It\'s also why I can\'t go back in through a front door.',cls:'npc',pause:600},
+    ],
+    auto:'thomas_pragmatic',autoDelay:400,
+  },
+
+  thomas_grabbed:{
+    setup:async()=>{triggerGlitch(0.8);triggerRedFlash();G.reliability-=10;updateReliabilityUI();},
+    messages:[
+      {speaker:'DR. CHEN',text:'(You lunge. Your hand closes around his wrist. He jerks back. For a second you\'re both leaning over nothing.)',cls:'memory'},
+      {speaker:'THOMAS',text:'LET GO—',cls:'npc',pause:300},
+      {speaker:'DR. CHEN',text:'(You release. He staggers back onto the ledge. So do you.)',cls:'memory'},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:1000},
+      {speaker:'THOMAS',text:'Don\'t ever do that again.',cls:'npc',pause:500},
+      {speaker:'DR. CHEN',text:'...',cls:'player'},
+      {speaker:'THOMAS',text:'I came here to be heard. Not saved.',cls:'npc',pause:700},
+    ],
+    auto:'thomas_final_approach',autoDelay:600,
   },
 
   thomas_strategic:{
