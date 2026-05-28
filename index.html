@@ -73,7 +73,14 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
 #choice-list{display:flex;flex-direction:column;gap:5px;}
 .choice-btn{background:none;border:1px solid var(--line);color:var(--text);font-family:var(--mono);font-size:13px;text-align:left;padding:7px 12px;cursor:pointer;border-radius:2px;letter-spacing:0.02em;transition:all 0.15s ease;position:relative;overflow:hidden;}
 
-/* VOLUME SLIDER */
+/* Choices rendered while dialogue still typing — appear but dimmed */
+#choices.dialogue-active .choice-btn:not(.locked-choice){
+  opacity:0.35;cursor:default;
+}
+#choices.dialogue-active .choice-btn:not(.locked-choice):hover{
+  border-color:var(--line);color:var(--text);
+}
+#choices.dialogue-active .choice-btn:not(.locked-choice):hover::before{width:0;}
 #vol-wrap{display:flex;align-items:center;gap:6px;}
 #vol-label{font-size:9px;color:var(--text-muted);letter-spacing:0.08em;}
 #vol-slider{
@@ -1203,15 +1210,17 @@ function drawRooftopDetails(W,H){
 // ── FIRST-PERSON POV — Mara's hands resting on the parapet wall
 function drawPOV(W,H){
   const t=sceneState.t;
-  const wallY=H*0.74;
+  const wallY=H*0.74; // where parapet cap meets your camera view
   const wallH=H-wallY;
+
+  // ── PARAPET WALL (close foreground) ──
   const wallG=ctx.createLinearGradient(0,wallY,0,H);
   wallG.addColorStop(0,'#2a2a3a');
   wallG.addColorStop(0.12,'#222230');
   wallG.addColorStop(1,'#141420');
   ctx.fillStyle=wallG;
   ctx.fillRect(0,wallY,W,wallH);
-  // Bright rim
+  // Rim light on top edge
   const rimG=ctx.createLinearGradient(0,wallY,0,wallY+3);
   rimG.addColorStop(0,'rgba(70,74,100,0.9)');
   rimG.addColorStop(1,'rgba(30,32,46,0)');
@@ -1230,7 +1239,7 @@ function drawPOV(W,H){
   for(let cx2=W*0.15;cx2<W;cx2+=W*0.22){
     ctx.beginPath();ctx.moveTo(cx2,wallY+2);ctx.lineTo(cx2+4,H);ctx.stroke();
   }
-  // Rain film
+  // Rain film on wall
   if(sceneState.rain>0.15){
     const rp=sceneState.rain*0.25;
     const wg=ctx.createLinearGradient(0,wallY,0,H);
@@ -1238,21 +1247,108 @@ function drawPOV(W,H){
     wg.addColorStop(1,'transparent');
     ctx.fillStyle=wg;ctx.fillRect(0,wallY,W,wallH);
   }
-  // Hands
-  drawHand(W*0.28,wallY+8,t,false,sceneState.glitchLevel);
-  drawHand(W*0.68,wallY+8,t,true,sceneState.glitchLevel);
+
+  // ── THOMAS — standing at the far ledge, visible above the parapet ──
+  // In POV, he's ~12m away. At standing height camera, parapet hides his legs.
+  // He appears at roughly W*0.62, upper body above wall line.
+  const thomasX = W * 0.62;
+  // The ledge where he stands (far edge of roof) sits at wallY - 6 from this POV
+  const thomasFootY = wallY - 4;
+  // At ~12m distance, a 1.8m person is about 60-70px tall in this frame
+  const figH = 68 + sceneState.thomasEdgeDist * 6; // moves slightly as trust shifts
+  const figW = 18;
+  // Sway — wind + low reliability
+  const sway = Math.sin(t * 0.38) * 2.2 * (1 + sceneState.glitchLevel * 1.8);
+  const fx = Math.round(thomasX + sway);
+
+  // Atmospheric glow behind Thomas — light from the city below him
+  const trust = G.reliability / 100;
+  const gA = 0.07 + trust * 0.06;
+  const gg = ctx.createRadialGradient(fx, thomasFootY - figH * 0.5, 0, fx, thomasFootY - figH * 0.5, 55);
+  gg.addColorStop(0, `rgba(90,110,160,${gA})`);
+  gg.addColorStop(1, 'transparent');
+  ctx.fillStyle = gg;
+  ctx.fillRect(fx - 60, thomasFootY - figH - 20, 120, figH + 30);
+
+  // His silhouette — coat and head, no legs (hidden by wall)
+  // Visible portion: from waist up (about 55% of total height shows above wall)
+  const visibleH = figH * 0.58;
+  const topY = thomasFootY - figH; // top of head
+  const waistY = thomasFootY - figH * 0.42; // where wall occludes
+
+  // Coat body
+  ctx.fillStyle = 'rgba(10,10,18,0.97)';
+  ctx.beginPath();
+  ctx.moveTo(fx - figW * 0.5, waistY);
+  ctx.bezierCurveTo(fx - figW * 0.55, waistY - figH * 0.18, fx - figW * 0.48, waistY - figH * 0.35, fx - figW * 0.42, topY + figH * 0.3);
+  ctx.lineTo(fx + figW * 0.42, topY + figH * 0.3);
+  ctx.bezierCurveTo(fx + figW * 0.48, waistY - figH * 0.35, fx + figW * 0.55, waistY - figH * 0.18, fx + figW * 0.5, waistY);
+  ctx.closePath();
+  ctx.fill();
+
+  // Arms hanging — barely visible at this scale
+  ctx.fillStyle = 'rgba(8,8,16,0.95)';
+  ctx.beginPath();
+  ctx.moveTo(fx - figW * 0.5, waistY);
+  ctx.bezierCurveTo(fx - figW * 0.7, waistY - figH * 0.1, fx - figW * 0.72, waistY - figH * 0.28, fx - figW * 0.6, waistY - figH * 0.34);
+  ctx.lineTo(fx - figW * 0.45, waistY - figH * 0.32);
+  ctx.bezierCurveTo(fx - figW * 0.5, waistY - figH * 0.18, fx - figW * 0.42, waistY - figH * 0.08, fx - figW * 0.4, waistY);
+  ctx.closePath();ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(fx + figW * 0.5, waistY);
+  ctx.bezierCurveTo(fx + figW * 0.7, waistY - figH * 0.1, fx + figW * 0.72, waistY - figH * 0.28, fx + figW * 0.6, waistY - figH * 0.34);
+  ctx.lineTo(fx + figW * 0.45, waistY - figH * 0.32);
+  ctx.bezierCurveTo(fx + figW * 0.5, waistY - figH * 0.18, fx + figW * 0.42, waistY - figH * 0.08, fx + figW * 0.4, waistY);
+  ctx.closePath();ctx.fill();
+
+  // Neck
+  ctx.fillStyle = 'rgba(10,10,18,0.97)';
+  ctx.fillRect(fx - 3, topY + figH * 0.28, 6, figH * 0.04);
+
+  // Head
+  ctx.beginPath();
+  ctx.moveTo(fx, topY);
+  ctx.bezierCurveTo(fx + figW * 0.38, topY, fx + figW * 0.4, topY + figH * 0.12, fx + figW * 0.38, topY + figH * 0.2);
+  ctx.bezierCurveTo(fx + figW * 0.36, topY + figH * 0.28, fx + figW * 0.2, topY + figH * 0.3, fx, topY + figH * 0.3);
+  ctx.bezierCurveTo(fx - figW * 0.2, topY + figH * 0.3, fx - figW * 0.36, topY + figH * 0.28, fx - figW * 0.38, topY + figH * 0.2);
+  ctx.bezierCurveTo(fx - figW * 0.4, topY + figH * 0.12, fx - figW * 0.38, topY, fx, topY);
+  ctx.closePath();ctx.fill();
+
+  // Rim light on one edge — cold blue from city glow below
+  ctx.strokeStyle = `rgba(80,100,160,${0.25 + trust * 0.15})`;
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(fx + figW * 0.42, waistY);
+  ctx.bezierCurveTo(fx + figW * 0.5, waistY - figH * 0.2, fx + figW * 0.44, waistY - figH * 0.35, fx + figW * 0.4, topY + figH * 0.3);
+  ctx.stroke();
+  // Head rim
+  ctx.beginPath();
+  ctx.arc(fx, topY + figH * 0.15, figW * 0.39, -Math.PI * 0.3, Math.PI * 0.3);
+  ctx.stroke();
+
+  // Wall occludes Thomas's lower half — overdraw with wall colour
+  ctx.fillStyle = wallG;
+  ctx.fillRect(0, wallY, W, wallH);
+  // Re-draw rim on wall over Thomas (correct layering)
+  ctx.fillStyle = rimG;
+  ctx.fillRect(0, wallY, W, 3);
+
+  // ── MARA'S HANDS ──
+  drawHand(W * 0.28, wallY + 8, t, false, sceneState.glitchLevel);
+  drawHand(W * 0.68, wallY + 8, t, true, sceneState.glitchLevel);
+
   // Radio on wall
-  const rx=W*0.47,ry=wallY+6;
-  ctx.fillStyle='rgba(20,22,34,0.95)';
-  ctx.beginPath();ctx.roundRect(rx,ry,22,14,2);ctx.fill();
-  const rsg=ctx.createLinearGradient(rx,ry,rx,ry+14);
-  rsg.addColorStop(0,'rgba(80,110,160,0.3)');
-  rsg.addColorStop(1,'rgba(60,80,120,0.1)');
-  ctx.fillStyle=rsg;
-  ctx.beginPath();ctx.roundRect(rx+2,ry+2,18,8,1);ctx.fill();
-  const sOn=Math.sin(t*2.4)>0.3;
-  ctx.fillStyle=sOn?'rgba(120,200,120,0.9)':'rgba(40,80,40,0.4)';
-  ctx.beginPath();ctx.arc(rx+19,ry+12,1.5,0,Math.PI*2);ctx.fill();
+  const rx = W * 0.47, ry = wallY + 6;
+  ctx.fillStyle = 'rgba(20,22,34,0.95)';
+  ctx.beginPath();ctx.roundRect(rx, ry, 22, 14, 2);ctx.fill();
+  const rsg = ctx.createLinearGradient(rx, ry, rx, ry + 14);
+  rsg.addColorStop(0, 'rgba(80,110,160,0.3)');
+  rsg.addColorStop(1, 'rgba(60,80,120,0.1)');
+  ctx.fillStyle = rsg;
+  ctx.beginPath();ctx.roundRect(rx + 2, ry + 2, 18, 8, 1);ctx.fill();
+  const sOn = Math.sin(t * 2.4) > 0.3;
+  ctx.fillStyle = sOn ? 'rgba(120,200,120,0.9)' : 'rgba(40,80,40,0.4)';
+  ctx.beginPath();ctx.arc(rx + 19, ry + 12, 1.5, 0, Math.PI * 2);ctx.fill();
 }
 
 function drawHand(cx,baseY,t,isRight,glitchLvl){
@@ -1429,6 +1525,7 @@ function initTitleCanvas(){
 // ═══════════════════════════════════════════════════════
 let isProcessing=false;
 let typingPaused=false; // paused while desk viewer is open
+let dialogueDone=false; // true only after all messages in a node have finished
 
 function updateReliabilityUI(){
   const r=G.reliability;
@@ -1501,7 +1598,10 @@ function showChoices(choices, isRefresh=false){
       : '';
     btn.innerHTML=`${prefix}${c.text}${hint}`;
     if(!isLocked){
-      btn.onclick=()=>makeChoice(c);
+      btn.onclick=()=>{
+        if(!dialogueDone) return; // block until all dialogue finished
+        makeChoice(c);
+      };
     } else {
       btn.onclick=()=>{
         const col=document.getElementById('evidence-col');
@@ -1829,6 +1929,8 @@ function setChapter(name){document.getElementById('chapter-display').textContent
 async function runNode(id){
   if(isProcessing) return;
   isProcessing=true;
+  dialogueDone=false;
+  document.getElementById('choices').classList.add('dialogue-active');
   const node=STORY[id];
   if(!node){isProcessing=false;return;}
   if(node.setup) await node.setup();
@@ -1836,6 +1938,9 @@ async function runNode(id){
     await addMessage(msg.speaker,msg.text,msg.cls||'');
     if(msg.pause) await delay(msg.pause);
   }
+  // All messages and pauses finished — now safe to show choices
+  dialogueDone=true;
+  document.getElementById('choices').classList.remove('dialogue-active');
   if(node.choices){
     let choices=node.choices;
     if(typeof choices==='function') choices=choices();
@@ -2741,6 +2846,7 @@ window.addEventListener('resize',()=>{
 });
 
 window.addEventListener('keydown',e=>{
+  if(!dialogueDone) return; // don't allow shortcuts while dialogue is typing
   const btns=document.querySelectorAll('.choice-btn');
   const map={KeyA:0,KeyB:1,KeyC:2,KeyD:3,Digit1:0,Digit2:1,Digit3:2,Digit4:3};
   if(map[e.code]!==undefined&&btns[map[e.code]]) btns[map[e.code]].click();
