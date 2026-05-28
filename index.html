@@ -273,7 +273,82 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
   letter-spacing:0.06em;font-family:var(--mono);
 }
 
-@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+.obj-photo{
+  width:54px;height:44px;
+  background:#080808;
+  border:3px solid #f0ebe0;
+  box-shadow:1px 2px 6px rgba(0,0,0,0.7);
+  display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;
+}
+.obj-photo-inner{
+  width:100%;height:100%;
+  background:linear-gradient(135deg,#1a1a2a 0%,#0e0e18 60%,#141420 100%);
+  display:flex;align-items:center;justify-content:center;
+  font-size:7px;color:#3a3a50;letter-spacing:0.05em;font-family:var(--mono);
+}
+.obj-sticky{
+  width:50px;height:50px;
+  background:#c8b840;
+  box-shadow:2px 2px 6px rgba(0,0,0,0.5);
+  padding:5px;
+  position:relative;
+}
+.obj-sticky::before{
+  content:'';position:absolute;top:0;right:0;
+  border-style:solid;border-width:0 8px 8px 0;
+  border-color:transparent rgba(0,0,0,0.2) transparent transparent;
+}
+.obj-sticky-lines{display:flex;flex-direction:column;gap:5px;padding-top:4px;}
+.obj-sticky-line{height:1px;background:rgba(0,0,0,0.2);}
+.obj-clipping{
+  width:56px;height:62px;
+  background:#f5f0e4;
+  border:1px solid #d8d0b8;
+  box-shadow:1px 2px 5px rgba(0,0,0,0.5);
+  position:relative;overflow:hidden;
+  padding:4px;
+}
+.obj-clipping::after{
+  content:'';position:absolute;bottom:-2px;right:-2px;
+  width:12px;height:12px;background:#e8e0c8;
+  transform:rotate(5deg);
+}
+.obj-clipping-headline{
+  height:2px;background:rgba(0,0,0,0.7);margin-bottom:3px;
+}
+.obj-clipping-body{display:flex;flex-direction:column;gap:2px;}
+.obj-clipping-line{height:1px;background:rgba(0,0,0,0.18);}
+.obj-prescription{
+  width:48px;height:60px;
+  background:#fff8f0;
+  border:1px solid #e0d0b8;
+  box-shadow:1px 2px 4px rgba(0,0,0,0.4);
+  padding:4px 3px;
+  position:relative;
+}
+.obj-prescription-rx{
+  font-family:Georgia,serif;font-size:11px;font-weight:bold;
+  color:#2a1a0a;margin-bottom:3px;
+}
+.obj-prescription-lines{display:flex;flex-direction:column;gap:3px;}
+.obj-prescription-line{height:1px;background:rgba(0,0,0,0.15);}
+.obj-torn{
+  width:52px;height:58px;
+  background:#f2ede0;
+  box-shadow:1px 2px 5px rgba(0,0,0,0.5);
+  position:relative;overflow:hidden;
+}
+.obj-torn::before{
+  content:'';
+  position:absolute;top:0;left:0;right:0;height:6px;
+  background:linear-gradient(180deg,transparent 0%,#f2ede0 60%);
+  clip-path:polygon(0 0,5% 100%,10% 20%,15% 80%,20% 10%,25% 90%,30% 15%,35% 70%,40% 5%,45% 85%,50% 20%,55% 75%,60% 10%,65% 90%,70% 25%,75% 80%,80% 0%,85% 70%,90% 15%,95% 85%,100% 0%,100% 0%,0 0);
+  z-index:2;
+}
+.obj-torn-lines{padding:10px 4px 4px;display:flex;flex-direction:column;gap:4px;}
+.obj-torn-line{height:1px;background:rgba(0,0,0,0.12);}
+.obj-torn-line.handwritten{height:1px;background:rgba(30,30,80,0.3);transform:rotate(-0.5deg);}
 
 /* ACTION CHOICES — physical/bold options */
 .choice-btn.action-choice{
@@ -1683,28 +1758,57 @@ function buildObjVisual(item){
         <div class="obj-chip-pin"></div><div class="obj-chip-pin"></div><div class="obj-chip-pin"></div>
       </div>
     </div>`;
-    default: return `<div class="obj-paper"><div class="obj-paper-lines"><div class="obj-paper-line thick"></div></div></div>`;
+    case 'photo': return `<div class="obj-photo"><div class="obj-photo-inner">PHOTO</div></div>`;
+    case 'sticky': return `<div class="obj-sticky"><div class="obj-sticky-lines">
+      <div class="obj-sticky-line"></div><div class="obj-sticky-line"></div>
+      <div class="obj-sticky-line"></div><div class="obj-sticky-line"></div>
+    </div></div>`;
+    case 'clipping': return `<div class="obj-clipping">
+      <div class="obj-clipping-headline"></div>
+      <div class="obj-clipping-body">
+        <div class="obj-clipping-line"></div><div class="obj-clipping-line"></div>
+        <div class="obj-clipping-line"></div><div class="obj-clipping-line"></div>
+        <div class="obj-clipping-line"></div><div class="obj-clipping-line"></div>
+        <div class="obj-clipping-line"></div>
+      </div>
+    </div>`;
+    case 'prescription': return `<div class="obj-prescription">
+      <div class="obj-prescription-rx">℞</div>
+      <div class="obj-prescription-lines">
+        <div class="obj-prescription-line"></div><div class="obj-prescription-line"></div>
+        <div class="obj-prescription-line"></div><div class="obj-prescription-line"></div>
+        <div class="obj-prescription-line"></div>
+      </div>
+    </div>`;
+    case 'torn': return `<div class="obj-torn"><div class="obj-torn-lines">
+      <div class="obj-torn-line"></div><div class="obj-torn-line handwritten"></div>
+      <div class="obj-torn-line"></div><div class="obj-torn-line handwritten"></div>
+      <div class="obj-torn-line"></div>
+    </div></div>`;
   }
 }
 
 const EVIDENCE_ITEMS={
+
   'case_file_7_19':{
     id:'case_file_7_19',name:'Case File 7-19',shortName:'Case 7-19',
-    type:'Document',objType:'folder',folderLabel:'CASE 7-19\nKAEL T.',stampColor:'red',stampText:'ACTIVE',
+    type:'Document',objType:'folder',folderLabel:'CASE 7-19\nKAEL T.',
     unlocksChoice:'read_case_file',
     render:()=>`<div class="ev-doc"><div class="ev-doc-paper">
-      <div class="ev-doc-field"><div class="ev-doc-field-label">Division</div><div class="ev-doc-field-val">DIVISION 7 — Crisis Response</div></div>
-      <hr class="ev-doc-divider">
-      <div class="ev-doc-field"><div class="ev-doc-field-label">Case Number</div><div class="ev-doc-field-val">7-19 / Active</div></div>
+      <div class="ev-doc-field"><div class="ev-doc-field-label">Case Number</div><div class="ev-doc-field-val">7-19 / Active — DIV. 7</div></div>
       <div class="ev-doc-field"><div class="ev-doc-field-label">Subject</div><div class="ev-doc-field-val">KAEL, Thomas A. — DOB 1990.03.07</div></div>
-      <div class="ev-doc-field"><div class="ev-doc-field-label">Former Employer</div><div class="ev-doc-field-val">Vantex Corp — Systems Integrity</div></div>
-      <div class="ev-doc-field"><div class="ev-doc-field-label">Note</div><div class="ev-doc-field-val">Psych. flag: <span class="ev-redact">███████████</span><br>(see eval, March 14)</div></div>
-      <div class="ev-doc-field"><div class="ev-doc-field-label">Known associates</div><div class="ev-doc-field-val"><span class="ev-redact">████████████████</span></div></div>
+      <div class="ev-doc-field"><div class="ev-doc-field-label">Former Employer</div><div class="ev-doc-field-val">Vantex Corp, Systems Integrity</div></div>
+      <div class="ev-doc-field"><div class="ev-doc-field-label">Dependants</div>
+        <div class="ev-doc-field-val">Divorced 2022. <span style="color:#c87a7a">One minor child.</span><br>KAEL, Sofia — DOB 2018.11.02<br>Custody: <span class="ev-redact">XXXXXXXX</span> (CPS ref. 0041-B)</div>
+      </div>
+      <hr class="ev-doc-divider">
+      <div class="ev-doc-field"><div class="ev-doc-field-label">Incident note</div><div class="ev-doc-field-val">Roof access 21:47. No weapons. Psych flag March 14.</div></div>
       <div class="ev-doc-stamp red">ACTIVE INCIDENT</div>
     </div></div>`
   },
+
   'chen_id_badge':{
-    id:'chen_id_badge',name:'Division 7 ID Badge',shortName:'My Badge',
+    id:'chen_id_badge',name:'My ID Badge',shortName:'My Badge',
     type:'Identification',objType:'badge',
     unlocksChoice:'read_badge',
     render:()=>`<div class="ev-doc" style="padding:10px"><div class="ev-badge">
@@ -1713,98 +1817,182 @@ const EVIDENCE_ITEMS={
       <div class="ev-badge-field">Name: <span>Dr. Mara Chen</span></div>
       <div class="ev-badge-field">Level: <span>Senior Negotiator</span></div>
       <div class="ev-badge-field">Clearance: <span>L3-PSYCH</span></div>
-      <div style="margin-top:10px;font-size:8px;color:#4a6a8a;border-top:1px solid #1a2a4a;padding-top:8px">Batch auth. — MAR records<br>Last signed: <span style="color:#c87a7a">14-MAR 23:41</span></div>
+      <div class="ev-badge-field" style="margin-top:6px;font-size:8px;color:#c87a7a">Last batch sign-off: 14-MAR 23:41</div>
     </div>
-    <div style="margin-top:8px;font-size:9px;color:var(--text-muted);font-style:italic;text-align:center;padding:0 8px">Something about the photo feels slightly wrong tonight.</div>
+    <div style="margin-top:10px;font-size:9px;color:var(--text-muted);font-style:italic;text-align:center;padding:0 8px;line-height:1.6">The photo is fine.<br>You are just tired.<br>It is nothing.</div></div>`
+  },
+
+  'glove_box_photo':{
+    id:'glove_box_photo',name:"Sofia's Photo",shortName:'A Photo',
+    type:'Personal',objType:'photo',missable:true,
+    unlocksChoice:'seen_sofia_photo',
+    render:()=>`<div class="ev-doc" style="padding:10px">
+      <div style="background:#0a0a10;padding:8px;border:1px solid #1a1a28;margin-bottom:10px;">
+        <div style="width:100%;height:80px;background:linear-gradient(160deg,#12121e,#0e0e18);display:flex;align-items:center;justify-content:center;border:1px solid #2a2a3a;">
+          <div style="text-align:center;font-family:var(--mono);font-size:8px;color:#4a4a6a;line-height:1.8">A girl, maybe four years old.<br>She holds a paper boat.<br>She is laughing at something<br>outside the frame.</div>
+        </div>
+      </div>
+      <div style="font-size:9px;color:var(--text-muted);font-style:italic;text-align:center;line-height:1.8;padding:0 4px">Found on the dashboard of Kael's car.<br>On the back, in blue pen:<br><span style="color:var(--accent);font-style:normal">"Papa's girl."</span></div>
     </div>`
   },
+
+  'glove_box_letter':{
+    id:'glove_box_letter',name:'Unsent Letter',shortName:'Letter',
+    type:'Personal',objType:'torn',missable:true,
+    unlocksChoice:'seen_unsent_letter',
+    render:()=>`<div class="ev-doc" style="padding:8px"><div class="ev-note" style="position:relative;">
+      <div style="position:absolute;top:6px;right:8px;font-size:8px;color:#8a7060;font-style:italic">unsent</div>
+      <span class="ev-note-line" style="font-size:10px;font-weight:600;color:#2a2018">Sofia,</span>
+      <span class="ev-note-line" style="margin-top:8px">By the time you can read this,</span>
+      <span class="ev-note-line">I hope none of it matters.</span>
+      <span class="ev-note-line" style="margin-top:8px">I hope you think I was dramatic.</span>
+      <span class="ev-note-line">I hope I was.</span>
+      <span class="ev-note-line" style="margin-top:8px">But if you are reading this</span>
+      <span class="ev-note-line">because something happened —</span>
+      <span class="ev-note-line" style="margin-top:8px;text-decoration:line-through;color:#8a7060">I need you to know it</span>
+      <span class="ev-note-line" style="text-decoration:line-through;color:#8a7060">was not because I did not</span>
+      <span class="ev-note-line" style="margin-top:6px;color:#2a2018">Know that I tried.</span>
+      <span class="ev-note-line" style="margin-top:10px;color:#8a7060">— Dad</span>
+    </div></div>`
+  },
+
+  'maintenance_log':{
+    id:'maintenance_log',name:'Maintenance Log',shortName:'Maint. Log',
+    type:'Record',objType:'clipping',missable:true,
+    unlocksChoice:'seen_maintenance_log',
+    render:()=>`<div class="ev-doc"><div class="ev-doc-paper">
+      <div style="font-size:8px;color:#8a7060;margin-bottom:6px;border-bottom:1px solid #d8cdb8;padding-bottom:4px">HARMON TOWER — Roof access log</div>
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:1px 8px;font-size:8px">
+        <div style="color:#8a7060">TIME</div><div style="color:#8a7060">BADGE ID</div>
+        <div>19:42</div><div>MAINT-011</div>
+        <div>20:15</div><div>MAINT-011</div>
+        <div style="color:#c87a7a;font-weight:500">21:33</div><div style="color:#c87a7a">VX-04471</div>
+        <div>22:04</div><div>DIV7-CHEN</div>
+      </div>
+      <hr class="ev-doc-divider">
+      <div style="font-size:8px;color:#8a7060;font-style:italic">VX-04471 — Kael's expired Vantex badge.<br>Should not have worked.<br><span style="color:#c87a7a">It did.</span></div>
+    </div></div>`
+  },
+
+  'dispatch_sticky':{
+    id:'dispatch_sticky',name:'Note from Reyes',shortName:'Sticky Note',
+    type:'Internal',objType:'sticky',
+    unlocksChoice:'seen_sticky',
+    render:()=>`<div class="ev-doc" style="padding:10px">
+      <div style="background:#c8b840;padding:14px 12px;font-family:Georgia,serif;font-size:11px;color:#2a2010;line-height:1.9;min-height:100px;box-shadow:2px 2px 6px rgba(0,0,0,0.3);position:relative">
+        <div style="position:absolute;top:0;right:0;border-style:solid;border-width:0 12px 12px 0;border-color:transparent rgba(0,0,0,0.15) transparent transparent;"></div>
+        <div style="font-weight:bold;margin-bottom:6px">Mara,</div>
+        <div>Kael asked for you by name.</div>
+        <div style="margin-top:4px">Not senior. YOU.</div>
+        <div style="margin-top:8px">Think about that.</div>
+        <div style="margin-top:8px;color:#6a5010">— Reyes</div>
+      </div>
+      <div style="margin-top:8px;font-size:9px;color:var(--text-muted);font-style:italic;text-align:center">Left in your jacket pocket.<br>Before you got in the car.</div>
+    </div>`
+  },
+
   'thomas_vantex_record':{
     id:'thomas_vantex_record',name:'Vantex Personnel Record',shortName:'Vantex Doc',
     type:'Document',objType:'paper',stampColor:'red',stampText:'RESTRICTED',
     unlocksChoice:'read_vantex',
     render:()=>`<div class="ev-doc"><div class="ev-doc-paper">
       <div class="ev-doc-field"><div class="ev-doc-field-label">Employee</div><div class="ev-doc-field-val">KAEL, Thomas — ID #VX-04471</div></div>
-      <div class="ev-doc-field"><div class="ev-doc-field-label">Status</div><div class="ev-doc-field-val">MEDICAL LEAVE (indefinite)</div></div>
-      <div class="ev-doc-field"><div class="ev-doc-field-label">Leave Reason</div><div class="ev-doc-field-val">Voluntary psych eval, 14-MAR.<br>Suicidal ideation noted.</div></div>
+      <div class="ev-doc-field"><div class="ev-doc-field-label">Status</div><div class="ev-doc-field-val" style="color:#c87a7a">MEDICAL LEAVE — indefinite<br><span style="font-size:8px;color:#8a7060">Declared unfit — parental duties suspended</span></div></div>
+      <div class="ev-doc-field"><div class="ev-doc-field-label">Leave Basis</div><div class="ev-doc-field-val">Voluntary psych eval, 14-MAR. Suicidal ideation noted.</div></div>
       <div class="ev-doc-field"><div class="ev-doc-field-label">Authorised by</div><div class="ev-doc-field-val" style="color:#c87a7a">Dr. M. Chen — Div. 7</div></div>
-      <div class="ev-doc-field"><div class="ev-doc-field-label">Timestamp</div><div class="ev-doc-field-val">14-MAR 23:41:07 (AMENDED)</div></div>
+      <div class="ev-doc-field"><div class="ev-doc-field-label">CPS notification</div><div class="ev-doc-field-val">Sent 15-MAR 08:14. Custody proceedings initiated.</div></div>
       <hr class="ev-doc-divider">
-      <div style="font-size:9px;color:#8a7060;font-style:italic">Original entry: AMENDED ×3.<br>See revision log <span class="ev-redact">███</span></div>
+      <div style="font-size:8px;color:#8a7060;font-style:italic">Original entry: AMENDED x3.</div>
       <div class="ev-doc-stamp red">RESTRICTED</div>
     </div></div>`
   },
+
   'march14_batch':{
     id:'march14_batch',name:'Batch Sign-off Log',shortName:'Batch Log',
     type:'System Record',objType:'chip',
     unlocksChoice:'read_batch',
     render:()=>{
       const corrupted=G.reliability<50;
-      return `<div class="ev-doc ${corrupted?'ev-corrupted':''}"><div class="ev-doc-paper">
+      return`<div class="ev-doc ${corrupted?'ev-corrupted':''}"><div class="ev-doc-paper">
         <div class="ev-doc-field"><div class="ev-doc-field-label">System</div><div class="ev-doc-field-val">Div7-DocAuth v2.1.4</div></div>
-        <div class="ev-doc-field"><div class="ev-doc-field-label">Date</div><div class="ev-doc-field-val">14-MAR — 22:58–23:44</div></div>
-        <div class="ev-doc-field"><div class="ev-doc-field-label">Operator</div><div class="ev-doc-field-val">chen.m@div7.gov</div></div>
-        <hr class="ev-doc-divider">
-        <div class="ev-doc-field"><div class="ev-doc-field-label">Documents signed</div><div class="ev-doc-field-val">${corrupted?'<span class="ev-redact">██</span>':'47'} of 47</div></div>
-        <div class="ev-doc-field"><div class="ev-doc-field-label">Avg. review time</div><div class="ev-doc-field-val">${corrupted?'<span class="ev-redact">████</span>':'00:01:04 per doc'}</div></div>
-        <div class="ev-doc-field"><div class="ev-doc-field-label">Doc #31 — Kael eval</div><div class="ev-doc-field-val">Review time: <span style="color:#c87a7a">00:00:03</span></div></div>
-        <hr class="ev-doc-divider">
-        <div style="font-size:9px;color:#8a7060">Three seconds. You spent three seconds on document 31.</div>
+        <div class="ev-doc-field"><div class="ev-doc-field-label">Session</div><div class="ev-doc-field-val">14-MAR 22:58-23:44</div></div>
+        <div class="ev-doc-field"><div class="ev-doc-field-label">Docs signed</div><div class="ev-doc-field-val">${corrupted?'XX':'47'} of 47</div></div>
+        <div class="ev-doc-field"><div class="ev-doc-field-label">Avg. review</div><div class="ev-doc-field-val">${corrupted?'XXXX':'00:01:04 per doc'}</div></div>
+        <div class="ev-doc-field" style="background:rgba(200,122,122,0.06);padding:4px">
+          <div class="ev-doc-field-label" style="color:#c87a7a">Doc 31 — Kael psych eval</div>
+          <div class="ev-doc-field-val">Review time: <span style="color:#c87a7a">00:00:03</span><br>
+          <span style="font-size:8px;color:#8a7060">This document removed Thomas Kael's parental rights.</span></div>
+        </div>
         <div class="ev-doc-stamp ${corrupted?'red':'blue'}">${corrupted?'DATA ERROR':'VERIFIED'}</div>
       </div></div>`;
     }
   },
+
   'radio_transcript':{
     id:'radio_transcript',name:'Radio Transcript',shortName:'Radio Log',
     type:'Audio Log',objType:'paper',stampColor:'blue',stampText:'COMMS',
     unlocksChoice:'read_radio',
     render:()=>`<div class="ev-doc" style="padding:8px"><div class="ev-transcript">
       <div style="color:#3a4a58;margin-bottom:8px;font-size:8px;letter-spacing:0.1em">DIV7-COMMS // CASE 7-19 // ENCRYPTED</div>
-      <div><span class="ev-transcript-ts">21:52</span><span class="ev-transcript-speaker">DISPATCH:</span> Chen. You're up. Twenty min, no movement.</div>
+      <div><span class="ev-transcript-ts">21:52</span><span class="ev-transcript-speaker">DISPATCH:</span> Kael — the father from the VX custody flag.</div>
       <div style="margin-top:5px"><span class="ev-transcript-ts">21:54</span><span class="ev-transcript-speaker">CHEN:</span> On roof. Visual confirmed.</div>
-      <div style="margin-top:5px"><span class="ev-transcript-ts">22:07</span><span class="ev-transcript-speaker">DISPATCH:</span> Do not engage conspiracy narratives.</div>
-      <div style="margin-top:8px"><span class="ev-transcript-ts">22:08</span><span class="ev-transcript-speaker" style="color:#c87a7a">DISPATCH:</span> <span style="color:#c87a7a">Note added to file: Subject claims knowledge of negotiator. Monitor for compromise.</span></div>
-      <div class="ev-transcript-note">* Dispatch flagged YOUR file.<br>* You were not informed.</div>
+      <div style="margin-top:5px"><span class="ev-transcript-ts">22:07</span><span class="ev-transcript-speaker">DISPATCH:</span> Standard protocol. Do not acknowledge any family narrative.</div>
+      <div style="margin-top:8px"><span class="ev-transcript-ts">22:08</span><span class="ev-transcript-speaker" style="color:#c87a7a">DISPATCH:</span> <span style="color:#c87a7a">Note: may implicate negotiator. Do not confirm or deny.</span></div>
+      <div class="ev-transcript-note" style="margin-top:8px">Dispatch knew about Sofia.<br>You were not told before arriving.</div>
     </div></div>`
   },
+
   'elisa_park_note':{
-    id:'elisa_park_note',name:"Elisa Park's Note",shortName:'E. Park Note',
+    id:'elisa_park_note',name:"Elisa Park's Letter",shortName:'E. Park Letter',
     type:'Handwritten',objType:'note',
     unlocksChoice:'read_elisa',
     render:()=>`<div class="ev-doc" style="padding:8px"><div class="ev-note">
-      <span class="ev-note-line">Thomas —</span>
-      <span class="ev-note-line" style="margin-top:8px">The thing they do is make</span>
-      <span class="ev-note-line">you unsure. Not scared.</span>
-      <span class="ev-note-line">Just... unsure.</span>
-      <span class="ev-note-line" style="margin-top:8px">I filed a correction seven</span>
-      <span class="ev-note-line">times. Each time it came</span>
-      <span class="ev-note-line">back worse.</span>
-      <span class="ev-note-line" style="margin-top:8px">Don't let them make you</span>
-      <span class="ev-note-line">unsure of yourself.</span>
-      <span class="ev-note-line">That's the whole game.</span>
-      <span class="ev-note-line" style="margin-top:12px;color:#8a7060">— E</span>
+      <span class="ev-note-line">Thomas,</span>
+      <span class="ev-note-line" style="margin-top:8px">They told my husband I came</span>
+      <span class="ev-note-line">here voluntarily. He believed them.</span>
+      <span class="ev-note-line" style="margin-top:6px">For a while, so did I.</span>
+      <span class="ev-note-line" style="margin-top:8px">That is the thing about a good lie.</span>
+      <span class="ev-note-line">It does not need you to believe it.</span>
+      <span class="ev-note-line">Just the people around you.</span>
+      <span class="ev-note-line" style="margin-top:8px">How is Sofia?</span>
+      <span class="ev-note-line" style="margin-top:10px;color:#8a7060">— Elisa</span>
     </div>
-    <div style="margin-top:8px;font-size:9px;color:var(--text-muted);text-align:center;font-style:italic;padding:0 8px">Brackenmore Psych. postmark.<br>Found in Thomas's coat pocket.</div>
+    <div style="margin-top:8px;font-size:9px;color:var(--text-muted);font-style:italic;text-align:center;padding:0 8px">Brackenmore Psych. Postmark: 3 weeks ago.<br>She knows his daughter's name.</div></div>`
+  },
+
+  'prescription_sofia':{
+    id:'prescription_sofia',name:"Sofia's Prescription",shortName:"Sofia's Rx",
+    type:'Medical',objType:'prescription',
+    unlocksChoice:'seen_prescription',
+    render:()=>`<div class="ev-doc" style="padding:8px">
+      <div style="background:#fff8f0;border:1px solid #e0d0b8;padding:12px;font-family:var(--mono);font-size:9px;line-height:1.8;color:#2a1a0a;">
+        <div style="font-size:10px;font-weight:bold;margin-bottom:6px;border-bottom:1px solid #e0d0b8;padding-bottom:4px">Rx PAEDIATRIC</div>
+        <div><span style="color:#8a7060">Patient:</span> KAEL, Sofia — Age: 5</div>
+        <div><span style="color:#8a7060">Prescriber:</span> Dr. L. Harrow, State Facility</div>
+        <div style="margin-top:6px"><span style="color:#8a7060">Medication:</span> <span style="color:#c87a7a">Risperidone 0.25mg</span></div>
+        <div><span style="color:#8a7060">Indication:</span> Attachment disorder</div>
+        <hr style="border:none;border-top:1px solid #e0d0b8;margin:8px 0">
+        <div style="font-size:8px;color:#8a7060;font-style:italic">Found in Thomas's coat pocket.<br>A five-year-old. Three months in state care.<br><span style="color:#c87a7a">Antipsychotics.</span></div>
+      </div>
     </div>`
   },
+
   'seventeen_list':{
     id:'seventeen_list',name:'The Seventeen',shortName:'The 17',
-    type:'Research',objType:'folder',folderLabel:'THE 17\nKAEL RESEARCH',stampColor:'red',stampText:'UNVERIFIED',
+    type:'Research',objType:'folder',folderLabel:'THE 17\nKAEL RESEARCH',
     unlocksChoice:'read_seventeen',
     render:()=>`<div class="ev-doc"><div class="ev-doc-paper">
-      <div style="font-size:9px;font-weight:500;margin-bottom:8px">PATTERN ANALYSIS — DRAFT</div>
-      <div style="font-size:8px;color:#6a6050;margin-bottom:10px">Compiled by T. Kael. 7 months.</div>
-      <div style="display:grid;grid-template-columns:1fr 2fr;gap:2px 8px;font-size:8px">
-        <div style="color:#8a7060">NAME</div><div style="color:#8a7060">STATUS</div>
-        <div>Park, E.</div><div style="color:#c87a7a">Brackenmore Psych.</div>
-        <div>Velarde, O.</div><div style="color:#c87a7a">Unemployable</div>
-        <div>Nguyen, S.</div><div style="color:#c87a7a">Unemployable</div>
-        <div>Diallo, A.</div><div style="color:#8a8040">Under review</div>
-        <div>Morrison, C.</div><div style="color:#c87a7a">Brackenmore Psych.</div>
-        <div><span class="ev-redact">█████████</span></div><div style="color:#c87a7a">Unknown</div>
-        <div colspan="2" style="color:#6a6050;font-style:italic;margin-top:4px">+10 entries redacted<br>[system auto-moderation]</div>
+      <div style="font-size:9px;font-weight:500;margin-bottom:4px">PATTERN — DRAFT 7</div>
+      <div style="font-size:8px;color:#c87a7a;margin-bottom:8px">Custody or family separation: 14 of 17 cases.</div>
+      <div style="display:grid;grid-template-columns:1fr 1.8fr;gap:2px 8px;font-size:8px">
+        <div style="color:#8a7060">NAME</div><div style="color:#8a7060">FAMILY IMPACT</div>
+        <div>Park, E.</div><div style="color:#c87a7a">Brackenmore. Husband remarried.</div>
+        <div>Velarde, O.</div><div style="color:#c87a7a">Unemployable. Kids in care.</div>
+        <div>Morrison, C.</div><div style="color:#c87a7a">Brackenmore. Lost parental rights.</div>
+        <div>XXXXXXXXX</div><div style="color:#8a7060">Unknown.</div>
       </div>
       <hr class="ev-doc-divider">
-      <div style="font-size:8px;color:#8a7060">Common thread: all complaints via systems passing through Div. 7.</div>
+      <div style="font-size:8px;color:#8a7060;font-style:italic">The psych flag is not the punishment. The family loss is. The flag is the mechanism.</div>
       <div class="ev-doc-stamp red">UNVERIFIED</div>
     </div></div>`
   },
@@ -1960,64 +2148,107 @@ async function runNode(id){
 // ═══════════════════════════════════════════════════════
 const STORY={
 
-  // ─── PRE-INTRO: ARRIVAL — before the system, before the role ──────────
+  // ─── PRE-INTRO: ARRIVAL ─────────────────────────────
   pre_intro:{
     setup:async()=>{
       setChapter('—');
       setSceneChapter(0);
-      setAtmosphere('Harmon Tower — Elevator 34F','22:08. The city hums thirty-four floors below your feet.');
-    },
-    messages:[
-      {speaker:'[INTERNAL]',text:'The elevator smells like old coffee and someone else\'s anxiety.',cls:'system-msg',pause:900},
-      {speaker:'[INTERNAL]',text:'Floor thirty-four. Roof access.',cls:'system-msg',pause:600},
-      {speaker:'[INTERNAL]',text:'You\'ve been doing this job for six years. You know the moment before the door opens.',cls:'system-msg',pause:800},
-      {speaker:'[INTERNAL]',text:'You check your badge. Adjust your coat. You don\'t check the file again — you read it twice in the car.',cls:'system-msg',pause:900},
-      {speaker:'RADIO',text:'Chen. Uniform says he\'s been stationary for twenty-two minutes. No sudden movement. That\'s the good news.',pause:600},
-      {speaker:'DR. CHEN',text:'What\'s the bad news.',cls:'player',pause:400},
-      {speaker:'RADIO',text:'He won\'t speak to anyone. Waved off the last two negotiators. Asked for someone senior.',pause:600},
-      {speaker:'RADIO',text:'You were the senior.',pause:400},
-      {speaker:'[INTERNAL]',text:'The elevator stops.',cls:'system-msg',pause:700},
-      {speaker:'[INTERNAL]',text:'The doors open onto a concrete corridor. One bare bulb. A door at the end marked ROOF ACCESS — NO ENTRY.',cls:'system-msg',pause:1000},
-      {speaker:'[INTERNAL]',text:'You push it open.',cls:'system-msg',pause:600},
-    ],
-    auto:'pre_intro_2',autoDelay:400,
-  },
-
-  pre_intro_2:{
-    setup:async()=>{
-      setAtmosphere('Harmon Tower — Roof Access, Floor 34','The cold hits first. Then the wind. Then the city.');
-      addEvidence('case_file_7_19');
+      setAtmosphere('Division 7 — Unmarked car, southbound','22:01. The city bleeds past the window.');
+      addEvidence('dispatch_sticky');
       addEvidence('chen_id_badge');
     },
     messages:[
-      {speaker:'[INTERNAL]',text:'The roof is bigger than you expected. These always are.',cls:'system-msg',pause:700},
-      {speaker:'[INTERNAL]',text:'To your left: a ventilation unit grinding against itself. To your right: a water tower, cables, the usual urban debris.',cls:'system-msg',pause:1000},
-      {speaker:'[INTERNAL]',text:'And at the far edge — a figure.',cls:'system-msg',pause:600},
-      {speaker:'[INTERNAL]',text:'Dark coat. Standing very still. Looking out over the city like he owns it, or like he\'s saying goodbye to it. You\'ve seen both before.',cls:'system-msg',pause:1100},
-      {speaker:'[INTERNAL]',text:'You check the file on instinct. Kael, Thomas. Thirty-four. Former data analyst.',cls:'system-msg',pause:700},
-      {speaker:'[INTERNAL]',text:'No prior incidents. No criminal record. No weapons. Everything clean.',cls:'system-msg',pause:600},
-      {speaker:'[INTERNAL]',text:'Almost too clean.',cls:'system-msg',pause:800},
-      {speaker:'RADIO',text:'Chen, confirm visual.',pause:400},
-      {speaker:'DR. CHEN',text:'I have him. Stand by.',cls:'player',pause:500},
-      {speaker:'[INTERNAL]',text:'You take three steps forward onto the roof.',cls:'system-msg',pause:500},
-      {speaker:'[INTERNAL]',text:'He doesn\'t turn around.',cls:'system-msg',pause:700},
+      {speaker:'[INTERNAL]',text:'Reyes left a note in your jacket pocket. You found it when you got in the car.',cls:'system-msg',pause:800},
+      {speaker:'[INTERNAL]',text:'"Mara — Kael asked for you by name. Not senior. YOU. Think about that. — Reyes"',cls:'memory',pause:1000},
+      {speaker:'[INTERNAL]',text:'You\'ve been thinking about it for eleven minutes.',cls:'system-msg',pause:700},
+      {speaker:'RADIO',text:'Chen. Uniform says subject\'s been stationary twenty-two minutes. No weapons. He asked for someone senior.',pause:600},
+      {speaker:'DR. CHEN',text:'He asked for me specifically.',cls:'player',pause:300},
+      {speaker:'RADIO',text:'...Yeah. You. Personal request, came through the duty desk.',pause:500},
+      {speaker:'RADIO',text:'We don\'t know how he got your name. Could be nothing.',pause:400},
+      {speaker:'[INTERNAL]',text:'It\'s not nothing.',cls:'system-msg',pause:600},
     ],
-    auto:'pre_intro_3',autoDelay:400,
+    choices:[
+      {text:"Pull over for a moment. Check the glove box — the uniform said Kael's car was still downstairs.",
+       reliability:5,flag:'checked_car',next:'pre_intro_car'},
+      {text:"Keep driving. Whatever it is, you'll handle it on the roof.",
+       reliability:0,flag:'skipped_car',next:'pre_intro_elevator'},
+    ]
   },
 
-  pre_intro_3:{
+  pre_intro_car:{
+    setup:async()=>{
+      setAtmosphere('Harmon Tower — Underground Parking, B2','His car is still here. A grey sedan. Nothing special.');
+      addEvidence('glove_box_photo');
+      addEvidence('glove_box_letter');
+    },
+    messages:[
+      {speaker:'[INTERNAL]',text:'The glove box is unlocked. The uniform didn\'t close it properly.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'A photo, face-down on the dashboard. An envelope, unsealed, in the side pocket.',cls:'system-msg',pause:700},
+      {speaker:'[INTERNAL]',text:'You turn the photo over.',cls:'system-msg',pause:500},
+      {speaker:'[INTERNAL]',text:'A girl. Four years old, maybe. Holding a paper boat. Laughing at something outside the frame.',cls:'memory',pause:1000},
+      {speaker:'[INTERNAL]',text:'"Papa\'s girl." Blue pen. His handwriting.',cls:'memory',pause:800},
+      {speaker:'[INTERNAL]',text:'The envelope. You shouldn\'t read it. You read it anyway.',cls:'system-msg',pause:700},
+      {speaker:'[INTERNAL]',text:'It\'s a letter to his daughter. Unsent. The kind you write when you\'re not sure you\'ll be around to send it.',cls:'system-msg',pause:1000},
+      {speaker:'[INTERNAL]',text:'Two sentences are crossed out. The ones that started: "I need you to know it was not because I did not—"',cls:'memory',pause:900},
+      {speaker:'[INTERNAL]',text:'He couldn\'t finish it.',cls:'system-msg',pause:600},
+    ],
+    auto:'pre_intro_elevator',autoDelay:600,
+  },
+
+  pre_intro_elevator:{
+    setup:async()=>{
+      setAtmosphere('Harmon Tower — Elevator 34F','22:08. The building breathes around you.');
+      addEvidence('case_file_7_19');
+    },
+    messages:[
+      {speaker:'[INTERNAL]',text:'The elevator smells like old concrete and recycled air.',cls:'system-msg',pause:700},
+      {speaker:'[INTERNAL]',text:'You open the case file. Kael, Thomas. Thirty-four. Former data analyst.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'Divorced 2022. One child. Sofia, five years old.',cls:'system-msg',pause:700},
+      {speaker:'[INTERNAL]',text:'Custody: redacted. CPS reference 0041-B.',cls:'system-msg',pause:700},
+      {speaker:'[INTERNAL]',text:'Psych flag, March 14. Authorised by: Dr. M. Chen, Division 7.',cls:'memory',pause:900},
+      {speaker:'[INTERNAL]',text:'Your name. Your sign-off.',cls:'crack',pause:800},
+      {speaker:'[INTERNAL]',text:'No prior incidents. No criminal record. No weapons. Everything clean.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'The door at the end of the corridor says ROOF ACCESS — NO ENTRY.',cls:'system-msg',pause:500},
+    ],
+    choices:[
+      {text:"Check if there's a maintenance log by the door.",
+       reliability:3,flag:'checked_corridor',next:'pre_intro_corridor'},
+      {text:"Push it open. You already know enough.",
+       reliability:0,flag:'skipped_corridor',next:'pre_intro_roof'},
+    ]
+  },
+
+  pre_intro_corridor:{
+    setup:async()=>{
+      addEvidence('maintenance_log');
+    },
+    messages:[
+      {speaker:'[INTERNAL]',text:'A laminated access sheet in a plastic sleeve on the wall.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'Two maintenance entries earlier tonight. Then at 21:33: VX-04471.',cls:'memory',pause:700},
+      {speaker:'[INTERNAL]',text:'That\'s his Vantex badge. The one that should have been deactivated when he was placed on medical leave.',cls:'system-msg',pause:800},
+      {speaker:'[INTERNAL]',text:'Seven months ago.',cls:'crack',pause:700},
+      {speaker:'[INTERNAL]',text:'Someone kept it active.',cls:'memory',pause:800},
+    ],
+    auto:'pre_intro_roof',autoDelay:500,
+  },
+
+  pre_intro_roof:{
     setup:async()=>{
       setChapter('01 — First Contact');
       setSceneChapter(0);
       setSpotlight(true,0.65);
-      setAtmosphere('Harmon Tower — Roof, Floor 34','The wind is steady. You can hear the city breathing below.');
+      setAtmosphere('Harmon Tower — Roof, Floor 34','The cold hits first. Then the wind. Then the city.');
     },
     messages:[
-      {speaker:'[INTERNAL]',text:'The rules are simple. You don\'t escalate. You don\'t lie if you can help it. You don\'t make promises you can\'t keep.',cls:'system-msg',pause:900},
-      {speaker:'[INTERNAL]',text:'You find the thing they actually need to say, and you give them enough space to say it.',cls:'system-msg',pause:800},
-      {speaker:'[INTERNAL]',text:'Usually it works.',cls:'system-msg',pause:500},
-      {speaker:'[INTERNAL]',text:'You\'re about ten metres away now. He still hasn\'t moved.',cls:'system-msg',pause:700},
-      {speaker:'[INTERNAL]',text:'Time to say something.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'The roof is bigger than you expected. It always is.',cls:'system-msg',pause:700},
+      {speaker:'[INTERNAL]',text:'And at the far edge — a figure. Dark coat. Standing very still.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'You\'ve seen this before. Someone who looks like they\'re saying goodbye, and someone who looks like they own it. You can never tell which one until you get closer.',cls:'system-msg',pause:1100},
+      {speaker:'RADIO',text:'Chen, confirm visual.',pause:400},
+      {speaker:'DR. CHEN',text:'I have him. Stand by.',cls:'player',pause:500},
+      {speaker:'[INTERNAL]',text:'The rules: don\'t escalate. Don\'t lie if you can help it. Don\'t make promises you can\'t keep.',cls:'system-msg',pause:900},
+      {speaker:'[INTERNAL]',text:'Find the thing they actually need to say.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'Give them enough space to say it.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'He asked for you by name.',cls:'crack',pause:800},
     ],
     auto:'thomas_first',autoDelay:600,
   },
@@ -2102,20 +2333,45 @@ const STORY={
 
   // ─── CHAPTER 2: THE CONTRADICTION ───────────────────
   thomas_file_moment:{
-    setup:async()=>{setChapter('02 — The Contradiction');setSceneChapter(1);},
+    setup:async()=>{
+      setChapter('02 — The Contradiction');
+      setSceneChapter(1);
+      addEvidence('prescription_sofia');
+    },
     messages:[
-      {speaker:'THOMAS',text:'I was a data integrity specialist. That means I found errors. Inconsistencies between what data said and what was real.',cls:'npc',pause:600},
-      {speaker:'THOMAS',text:'Seven months ago, I found something in Vantex\'s personnel system.',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'My file said I\'d been placed on medical leave. Depression. Suicidal ideation.',cls:'npc',pause:400},
-      {speaker:'THOMAS',text:'Except I hadn\'t. I was fine. I\'d never filed anything. Never spoken to HR.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'I was a data integrity specialist. That means I found errors. Inconsistencies between what the system said and what was real.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'Seven months ago I found something in Vantex\'s system. My file said I\'d been placed on medical leave. Suicidal ideation. Unfit for work.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'I was fine. I\'d never filed anything. I\'d never spoken to anyone.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'But they sent it to CPS.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'Fourteen days after that record appeared, they took Sofia.',cls:'npc',pause:1000},
     ],
     choices:[
-      {text:"That sounds like a clerical error. It happens — systems make mistakes.",reliability:-10,flag:'dismissed_file',next:'thomas_angry_dismiss'},
-      {text:"Someone put that record there. Who had access to your file?",reliability:5,flag:'investigated_file',next:'thomas_investigates'},
-      {text:"Did you report it? Try to get it corrected?",reliability:3,flag:'asked_process',next:'thomas_process'},
-      {text:"[Pull out Case File 7-19.] The file I have says no prior incidents. Nothing like this.",reliability:4,flag:'used_case_file',requiresDoc:'case_file_7_19',next:'thomas_chen_pulls_file'},
-      {type:'action',text:"[Hold up a hand — stop him mid-sentence.]",reliability:-3,flag:'interrupted',next:'thomas_interrupted'},
+      {text:"Sofia. Your daughter.",reliability:10,flag:'named_sofia',next:'thomas_sofia_named',
+       requiresDoc:'case_file_7_19'},
+      {text:"How old is she?",reliability:5,flag:'asked_age',next:'thomas_sofia_age'},
+      {text:"That sounds like a clerical error. Systems make mistakes.",reliability:-12,flag:'dismissed_file',next:'thomas_angry_dismiss'},
+      {text:"Someone put that record there deliberately.",reliability:5,flag:'investigated_file',next:'thomas_investigates'},
     ]
+  },
+
+  thomas_sofia_named:{
+    messages:[
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:900},
+      {speaker:'THOMAS',text:'You read the file.',cls:'npc',pause:400},
+      {speaker:'DR. CHEN',text:'I did.',cls:'player',pause:300},
+      {speaker:'THOMAS',text:'Then you know she\'s five. Then you know she\'s in state care. Then you know she has been there for seven months because of a document with your name on it.',cls:'npc',pause:1000},
+    ],
+    auto:'thomas_reveals_chen',autoDelay:400,
+  },
+
+  thomas_sofia_age:{
+    messages:[
+      {speaker:'THOMAS',text:'Five.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'She turned five in November. I wasn\'t there.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'The facility sent me a photo. She\'s holding a paper boat. She looks happy.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'I don\'t know if she actually is. I can\'t tell anymore. I can\'t tell anything anymore.',cls:'npc',pause:900},
+    ],
+    auto:'thomas_reveals_chen',autoDelay:400,
   },
 
   thomas_chen_pulls_file:{
@@ -2325,18 +2581,49 @@ const STORY={
       await delay(500);
     },
     messages:[
-      {speaker:'THOMAS',text:'They built it carefully. Whoever did it.',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'It doesn\'t look planted. It looks like routine administration. The kind of thing that happens a hundred times a day and no one ever checks.',cls:'npc',pause:800},
-      {speaker:'THOMAS',text:'Because who would? The system is the record. The record is the truth.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'They built it carefully. It doesn\'t look planted. It looks like routine administration.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'Because who would check? The system is the record. The record is the truth.',cls:'npc',pause:700},
       {speaker:'THOMAS',text:'Unless you\'re the kind of person who checks.',cls:'npc',pause:600},
     ],
     choices:[
-      {text:"I need to know if my supervisor knew about this. If Division 7 was used as cover —",reliability:5,flag:'confronts_division',next:'chen_radio_call'},
-      {text:"(Let him keep talking. You need more time to think.)",reliability:3,flag:'buys_time',next:'chen_thinks_more'},
-      {text:"Stop. I can't let this compromise the negotiation. You need to come down.",reliability:-10,flag:'closes_down',next:'chen_shuts_down'},
-      {text:"[Pull out the Batch Log.] Three seconds. I spent three seconds on document 31.",reliability:7,flag:'confronted_batch',requiresDoc:'march14_batch',next:'chen_confronts_batch'},
+      {text:"I need to know if my supervisor knew. If Division 7 was used as a mechanism —",reliability:5,flag:'confronts_division',next:'chen_radio_call'},
+      {text:"(Let him keep talking. You need more time.)",reliability:3,flag:'buys_time',next:'chen_thinks_more'},
+      {text:"[Use what you know.] Your badge expired, Thomas. But the building let you in anyway. Someone wanted you here.",
+       reliability:6,flag:'confronted_badge',requiresDoc:'maintenance_log',next:'chen_badge_gambit'},
+      {text:"[Tell him about Sofia's prescription.] I found it. In your pocket.",
+       reliability:-8,flag:'used_prescription',requiresDoc:'prescription_sofia',next:'chen_prescription_gambit',
+       dangerous:true},
+      {text:"[Pull out the Batch Log.] Three seconds. I spent three seconds on document thirty-one.",
+       reliability:7,flag:'confronted_batch',requiresDoc:'march14_batch',next:'chen_confronts_batch'},
       {type:'action',text:"[Sit down on the ledge beside him.]",reliability:5,flag:'sat_on_ledge',next:'chen_sits_ledge'},
     ]
+  },
+
+  chen_badge_gambit:{
+    messages:[
+      {speaker:'DR. CHEN',text:'Your Vantex badge. It should have been cancelled seven months ago when they put you on leave.',cls:'player',pause:600},
+      {speaker:'DR. CHEN',text:'It wasn\'t. The building logged you in at 21:33.',cls:'player',pause:500},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'I know.',cls:'npc',pause:400},
+      {speaker:'THOMAS',text:'I noticed it too. I\'ve been trying to figure out who kept it active. And why tonight.',cls:'npc',pause:700},
+      {speaker:'DR. CHEN',text:'Someone made sure you could get up here.',cls:'player',pause:500},
+      {speaker:'THOMAS',text:'That\'s either very good news or very bad news.',cls:'npc',pause:700},
+    ],
+    auto:'chen_radio_call',autoDelay:400,
+  },
+
+  chen_prescription_gambit:{
+    setup:async()=>{triggerGlitch(0.5);triggerRedFlash();},
+    messages:[
+      {speaker:'DR. CHEN',text:'Sofia\'s on risperidone. An antipsychotic. At five years old.',cls:'player',pause:400},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'You went through my pockets.',cls:'npc',pause:400},
+      {speaker:'DR. CHEN',text:'Uniform standard procedure. I—',cls:'player',pause:300},
+      {speaker:'THOMAS',text:'You are using her to get me off the ledge.',cls:'npc',pause:600},
+      {speaker:'[INTERNAL]',text:'He\'s right. You are.',cls:'crack',pause:700},
+      {speaker:'THOMAS',text:'It\'s working, by the way. I hate that it\'s working.',cls:'npc',pause:800},
+    ],
+    auto:'chen_radio_call',autoDelay:400,
   },
 
   chen_confronts_batch:{
@@ -2424,21 +2711,37 @@ const STORY={
       addEvidence('seventeen_list');
     },
     messages:[
-      {speaker:'THOMAS',text:'You want to know what I actually found?',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'Not the file. Anyone can fake a file.',cls:'npc',pause:400},
-      {speaker:'THOMAS',text:'I found a pattern. Seventeen people across three companies. All former employees. All with similar records — voluntary psychiatric holds, suicidal risk flags, filed against their will.',cls:'npc',pause:700},
-      {speaker:'THOMAS',text:'All of them had tried to whistleblow. On different things — data fraud, labor violations, safety bypasses.',cls:'npc',pause:600},
-      {speaker:'THOMAS',text:'All of them are currently unemployable. Some of them are institutionalized.',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'I found seventeen people. Same pattern. Psych flag appears, CPS is notified, family access is cut.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'In fourteen of the seventeen cases there were children involved.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'The pattern isn\'t employment retaliation. It\'s family removal. That\'s the punishment. The job is just the mechanism to get there.',cls:'npc',pause:900},
       {speaker:'THOMAS',text:'All of their files passed through Division 7.',cls:'npc',pause:1000},
     ],
     choices:[
-      {text:"If that's true, alive you're a witness. Coming down is the most dangerous thing you can do to them.",reliability:5,flag:'strategic_empathy',next:'thomas_strategic'},
-      {text:"Division 7 has hundreds of cases. This is pattern-matching from grief.",reliability:-15,flag:'dismissed_system',next:'thomas_system_dismissed'},
-      {text:"I believe you found something. But standing here doesn't release it.",reliability:3,flag:'pragmatic_response',next:'thomas_pragmatic'},
-      {text:"[Hold up Elisa Park's note.] She said the same thing — 'that's the whole game.'",reliability:7,flag:'used_elisa_note',requiresDoc:'elisa_park_note',next:'thomas_elisa_moment'},
-      {text:"[Show him The Seventeen list.] Your research. Twelve of these names I can verify right now.",reliability:6,flag:'used_seventeen',requiresDoc:'seventeen_list',next:'thomas_seventeen_moment'},
-      {type:'action',text:"[Grab his wrist. Pull him back from the edge.]",reliability:-20,flag:'grabbed_thomas',dangerous:true,next:'thomas_grabbed'},
+      {text:"If that's true, you're the only living witness to the complete picture. Alive matters.",reliability:5,flag:'strategic_empathy',next:'thomas_strategic'},
+      {text:"You think Division 7 is doing this to protect corporate clients.",reliability:-10,flag:'dismissed_system',next:'thomas_system_dismissed'},
+      {text:"I believe you found something real. But this — tonight — doesn't fix any of it.",reliability:3,flag:'pragmatic_response',next:'thomas_pragmatic'},
+      {text:"[Show him Elisa's letter.] She asks about Sofia. She knows her name.",reliability:7,flag:'used_elisa_note',requiresDoc:'elisa_park_note',next:'thomas_elisa_moment'},
+      {text:"[Show him The Seventeen list.] Your research. The pattern is visible.",reliability:6,flag:'used_seventeen',requiresDoc:'seventeen_list',next:'thomas_seventeen_moment'},
+      {text:"[Show him the unsent letter.] You went through his car. You read it.",reliability:-5,flag:'used_letter',requiresDoc:'glove_box_letter',next:'thomas_letter_moment',dangerous:true},
+      {type:'action',text:"[Grab his wrist. Pull him back.]",reliability:-20,flag:'grabbed_thomas',dangerous:true,next:'thomas_grabbed'},
     ]
+  },
+
+  thomas_letter_moment:{
+    setup:async()=>{triggerRedFlash();},
+    messages:[
+      {speaker:'DR. CHEN',text:'I went through your car. I found the letter.',cls:'player',pause:500},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:1000},
+      {speaker:'THOMAS',text:'You read it.',cls:'npc',pause:400},
+      {speaker:'DR. CHEN',text:'Yes.',cls:'player',pause:300},
+      {speaker:'THOMAS',text:'The part that was crossed out.',cls:'npc',pause:400},
+      {speaker:'DR. CHEN',text:'Yes.',cls:'player',pause:300},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'Then you know what I was trying to write. And you know I couldn\'t.',cls:'npc',pause:700},
+      {speaker:'[INTERNAL]',text:'You used a private letter to a five-year-old as a negotiation tool.',cls:'crack',pause:600},
+      {speaker:'[INTERNAL]',text:'It was also the most honest thing either of you has said tonight.',cls:'system-msg',pause:800},
+    ],
+    auto:'thomas_strategic',autoDelay:400,
   },
 
   thomas_elisa_moment:{
@@ -2594,7 +2897,8 @@ const STORY={
       {speaker:'[SYSTEM]',text:'Subject secured. Case 7-19 closed.',cls:'system-msg',pause:500},
       {speaker:'[INTERNAL]',text:'Three weeks later, you request your own Division 7 personnel file.',cls:'system-msg',pause:500},
       {speaker:'[INTERNAL]',text:'The system shows no record of Thomas Kael.',cls:'system-msg',pause:600},
-      {speaker:'[INTERNAL]',text:'Your March 14th batch — forty-seven signatures — is gone.',cls:'system-msg highlight',pause:1000},
+      {speaker:'[INTERNAL]',text:'Your March 14th batch — forty-seven signatures — is gone.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'Sofia\'s CPS case reference 0041-B is still open.',cls:'system-msg highlight',pause:1000},
     ],
     auto:'end_screen_trigger',autoDelay:1000,
   },
