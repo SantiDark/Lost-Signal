@@ -56,16 +56,95 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
 .msg{display:flex;flex-direction:column;gap:3px;margin-bottom:13px;opacity:0;animation:fadeIn 0.5s ease forwards;}
 .msg-speaker{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-dim);}
 .msg-text{font-size:17px;line-height:1.7;color:var(--text);font-family:var(--sans);font-weight:300;}
-.msg.player .msg-speaker{color:var(--accent)}
+
+/* THOMAS */
 .msg.npc .msg-speaker{color:var(--accent2)}
-.msg.system-msg .msg-text{font-family:var(--mono);font-size:11px;color:var(--text-dim);font-style:italic;}
-.msg.highlight .msg-text{color:var(--accent);border-left:2px solid var(--accent);padding-left:12px;}
-.msg.memory .msg-text{color:#8a7ab8;font-style:italic;font-family:var(--mono);font-size:11px;border-left:2px solid #3a2a58;padding-left:12px;}
-.msg.crack .msg-text{color:var(--danger);font-family:var(--mono);font-size:11px;}
-.msg.doubt .msg-text{color:#7a9a7a;font-family:var(--sans);font-size:12px;font-style:italic;}
+.msg.npc .msg-text{font-size:17px;}
+
+/* MARA */
+.msg.player .msg-speaker{color:var(--accent)}
+
+/* SYSTEM — small mono, scanline background */
+.msg.system-msg{
+  padding:6px 10px;
+  background:repeating-linear-gradient(0deg,transparent,transparent 18px,rgba(255,255,255,0.012) 18px,rgba(255,255,255,0.013) 19px);
+  border-left:2px solid rgba(60,60,80,0.4);
+}
+.msg.system-msg .msg-speaker{color:rgba(80,80,100,0.6);}
+.msg.system-msg .msg-text{
+  font-family:var(--mono);font-size:11px;color:var(--text-dim);
+  letter-spacing:0.02em;line-height:1.8;
+}
+
+/* MEMORY — Mara's internal voice. Indented, purple, italic, timestamped gutter */
+.msg.memory{
+  position:relative;
+  padding-left:28px;
+  margin-left:8px;
+}
+.msg.memory::before{
+  content:'';
+  position:absolute;left:0;top:4px;bottom:4px;
+  width:2px;background:rgba(120,100,180,0.35);
+  border-radius:1px;
+}
+.msg.memory .msg-speaker{display:none;} /* no label — it's inside her head */
+.msg.memory .msg-text{
+  color:rgba(160,148,210,0.85);
+  font-style:italic;
+  font-family:var(--sans);
+  font-size:15px;
+  line-height:1.8;
+  font-weight:300;
+}
+
+/* CRACK — realisation / fracture. Red, mono, appears with a subtle flash */
+.msg.crack{
+  animation:fadeIn 0.3s ease forwards, crackFlash 0.5s ease;
+}
+.msg.crack .msg-speaker{display:none;}
+.msg.crack .msg-text{
+  color:rgba(210,100,90,0.9);
+  font-family:var(--mono);
+  font-size:12px;
+  letter-spacing:0.04em;
+  border-left:2px solid rgba(200,80,80,0.4);
+  padding-left:10px;
+}
+@keyframes crackFlash{
+  0%{background:rgba(200,80,80,0.08);}
+  100%{background:transparent;}
+}
+
+/* REVELATION — a new class for the biggest internal moments */
+.msg.revelation{
+  animation:fadeIn 0.6s ease forwards, revelationPulse 1s ease;
+  margin:6px 0 16px;
+}
+.msg.revelation .msg-speaker{display:none;}
+.msg.revelation .msg-text{
+  color:rgba(200,168,122,0.9);
+  font-family:var(--sans);
+  font-size:16px;
+  font-style:italic;
+  font-weight:300;
+  border-top:1px solid rgba(200,168,122,0.15);
+  border-bottom:1px solid rgba(200,168,122,0.15);
+  padding:10px 0;
+  text-align:center;
+  letter-spacing:0.02em;
+}
+@keyframes revelationPulse{
+  0%{opacity:0;letter-spacing:0.1em;}
+  60%{opacity:1;}
+  100%{letter-spacing:0.02em;}
+}
+
+/* DOUBT — quieter green internal dialogue */
+.msg.doubt .msg-text{color:#7a9a7a;font-family:var(--sans);font-size:13px;font-style:italic;}
+
 @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 @keyframes glitchText{0%{transform:translateX(0)}20%{transform:translateX(-3px)}40%{transform:translateX(3px)}60%{transform:translateX(-2px)}80%{transform:translateX(2px)}100%{transform:translateX(0)}}
-@keyframes flicker{0%,100%{opacity:1}30%{opacity:0.6}50%{opacity:0.9}70%{opacity:0.5}}
 
 /* CHOICES */
 #choices{flex-shrink:0;border-top:1px solid var(--line);background:var(--bg2);padding:10px 20px;min-height:72px;display:flex;flex-direction:column;}
@@ -287,6 +366,15 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
   font-size:8px;color:var(--text-muted);
   letter-spacing:0.06em;font-family:var(--mono);
 }
+.obj-hint{
+  position:absolute;
+  bottom:-28px;left:50%;transform:translateX(-50%);
+  white-space:nowrap;
+  font-size:7px;color:var(--text-muted);
+  opacity:0.55;
+  letter-spacing:0.04em;font-family:var(--sans);
+  font-style:italic;
+}
 
 .obj-photo{
   width:54px;height:44px;
@@ -365,19 +453,10 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
 .obj-torn-line{height:1px;background:rgba(0,0,0,0.12);}
 .obj-torn-line.handwritten{height:1px;background:rgba(30,30,80,0.3);transform:rotate(-0.5deg);}
 
-/* PERSONALITY-TYPED CHOICES */
-.pers-hard{border-color:rgba(200,100,100,0.25);}
-.pers-hard .choice-prefix{color:rgba(200,100,100,0.5);}
-.pers-hard:hover{border-color:#c87a7a;color:#c87a7a;}
-.pers-hard:hover::before{background:#c87a7a;}
-.pers-soft{border-color:rgba(100,160,200,0.25);}
-.pers-soft .choice-prefix{color:rgba(100,160,200,0.5);}
-.pers-soft:hover{border-color:#7ab8d8;color:#7ab8d8;}
-.pers-soft:hover::before{background:#7ab8d8;}
-.pers-detached{border-color:rgba(140,140,160,0.25);}
-.pers-detached .choice-prefix{color:rgba(140,140,160,0.5);}
-.pers-detached:hover{border-color:#9898b0;color:#9898b0;}
-.pers-detached:hover::before{background:#9898b0;}
+/* PERSONALITY-TYPED CHOICES — tracked but visually neutral, no colour hints */
+.pers-hard,.pers-soft,.pers-detached{}
+.pers-hard:hover,.pers-soft:hover,.pers-detached:hover{border-color:var(--accent);color:var(--accent);}
+.pers-hard:hover::before,.pers-soft:hover::before,.pers-detached:hover::before{background:var(--accent);}
 .choice-btn.action-choice{
   border-color:rgba(200,168,122,0.2);
   background:rgba(200,168,122,0.03);
@@ -763,34 +842,54 @@ function initAudio(){
     droneGain.connect(masterGain);
     droneOsc.start();droneOsc2.start();droneLfo.start();
 
-    // ── RAIN / WHITE NOISE — two layers ──
-    // Layer 1: stress-reactive (builds with tension)
-    const bufferSize=AC.sampleRate*2;
-    const noiseBuffer=AC.createBuffer(1,bufferSize,AC.sampleRate);
-    const data=noiseBuffer.getChannelData(0);
-    for(let i=0;i<bufferSize;i++) data[i]=(Math.random()*2-1);
-    rainNode=AC.createBufferSource();
-    rainNode.buffer=noiseBuffer;rainNode.loop=true;
-    const rainFilter=AC.createBiquadFilter();
-    rainFilter.type='bandpass';rainFilter.frequency.value=900;rainFilter.Q.value=0.4;
-    noiseGain=AC.createGain();noiseGain.gain.value=0.0;
-    rainNode.connect(rainFilter);rainFilter.connect(noiseGain);noiseGain.connect(masterGain);
-    rainNode.start();
+    // ── RAIN — three-layer synthesis for realistic sound ──
+    // Real rain = low rumble (surface impact) + mid splash + high sibilance (droplets)
+    function makeNoiseBuf(seconds){
+      const buf=AC.createBuffer(1,Math.floor(AC.sampleRate*seconds),AC.sampleRate);
+      const d=buf.getChannelData(0);
+      // Pink-ish noise: roll off high frequency energy
+      let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+      for(let i=0;i<d.length;i++){
+        const wh=Math.random()*2-1;
+        b0=0.99886*b0+wh*0.0555179;b1=0.99332*b1+wh*0.0750759;
+        b2=0.96900*b2+wh*0.1538520;b3=0.86650*b3+wh*0.3104856;
+        b4=0.55000*b4+wh*0.5329522;b5=-0.7616*b5-wh*0.0168980;
+        d[i]=(b0+b1+b2+b3+b4+b5+b6+wh*0.5362)*0.11;
+        b6=wh*0.115926;
+      }
+      return buf;
+    }
 
-    // Layer 2: always-on ambient rain — soft, high-passed, constant presence
-    const ambBuf=AC.createBuffer(1,bufferSize,AC.sampleRate);
-    const ambData=ambBuf.getChannelData(0);
-    for(let i=0;i<bufferSize;i++) ambData[i]=(Math.random()*2-1);
-    const ambRain=AC.createBufferSource();
-    ambRain.buffer=ambBuf;ambRain.loop=true;
-    const ambFilter=AC.createBiquadFilter();
-    ambFilter.type='highpass';ambFilter.frequency.value=3500; // high-pass = hiss of distant rain
-    const ambFilter2=AC.createBiquadFilter();
-    ambFilter2.type='lowpass';ambFilter2.frequency.value=8000;
-    const ambGain=AC.createGain();
-    ambGain.gain.value=0.022; // always on, very quiet
-    ambRain.connect(ambFilter);ambFilter.connect(ambFilter2);ambFilter2.connect(ambGain);ambGain.connect(masterGain);
-    ambRain.start();
+    // Layer A: low rumble — rain hitting the roof surface (200–500Hz)
+    const bufA=makeNoiseBuf(3);
+    const rainA=AC.createBufferSource();rainA.buffer=bufA;rainA.loop=true;
+    const fA=AC.createBiquadFilter();fA.type='bandpass';fA.frequency.value=320;fA.Q.value=0.6;
+    const gA2=AC.createGain();gA2.gain.value=0.0; // stress-reactive (main rain)
+    noiseGain=gA2; // wire to existing noiseGain reference
+    rainA.connect(fA);fA.connect(gA2);gA2.connect(masterGain);rainA.start();
+    rainNode=rainA; // keep reference for compat
+
+    // Layer B: mid splash — the characteristic patter (1000–2000Hz)
+    const bufB=makeNoiseBuf(3);
+    const rainB=AC.createBufferSource();rainB.buffer=bufB;rainB.loop=true;
+    const fB=AC.createBiquadFilter();fB.type='bandpass';fB.frequency.value=1400;fB.Q.value=0.8;
+    const gB=AC.createGain();gB.gain.value=0.018; // always-on base layer
+    rainB.connect(fB);fB.connect(gB);gB.connect(masterGain);rainB.start();
+
+    // Layer C: high sibilance — droplets on metal/concrete (4000–7000Hz)
+    const bufC=makeNoiseBuf(2);
+    const rainC=AC.createBufferSource();rainC.buffer=bufC;rainC.loop=true;
+    const fC=AC.createBiquadFilter();fC.type='bandpass';fC.frequency.value=5000;fC.Q.value=1.2;
+    const gC=AC.createGain();gC.gain.value=0.008; // subtle shimmer, always on
+    rainC.connect(fC);fC.connect(gC);gC.connect(masterGain);rainC.start();
+
+    // Layer D: occasional drip resonance — a very low notch gives depth
+    const bufD=makeNoiseBuf(4);
+    const rainD=AC.createBufferSource();rainD.buffer=bufD;rainD.loop=true;
+    const fD=AC.createBiquadFilter();fD.type='peaking';fD.frequency.value=280;fD.gain.value=8;fD.Q.value=2;
+    const fD2=AC.createBiquadFilter();fD2.type='lowpass';fD2.frequency.value=600;
+    const gD=AC.createGain();gD.gain.value=0.006;
+    rainD.connect(fD);fD.connect(fD2);fD2.connect(gD);gD.connect(masterGain);rainD.start();
 
     // ── TENSION PULSE — very subtle, only under stress ──
     tensionOsc=AC.createOscillator();
@@ -1812,7 +1911,10 @@ function buildDeskObject(item,slotIdx){
   const wrap=document.createElement('div');
   wrap.className='desk-obj'+(item._new?' obj-new':'');
   wrap.style.cssText=`left:${slot.x}px;top:${slot.y}px;transform:rotate(${slot.rot}deg);z-index:${slotIdx+1}`;
-  wrap.innerHTML=buildObjVisual(item)+`<div class="desk-obj-shadow"></div><span class="obj-label">${item.shortName||item.name}</span>`;
+  wrap.innerHTML=buildObjVisual(item)
+    +`<div class="desk-obj-shadow"></div>`
+    +`<span class="obj-label">${item.shortName||item.name}</span>`
+    +(item.hint?`<span class="obj-hint">${item.hint}</span>`:'');
   wrap.onclick=()=>openEvidenceViewer(item.id);
   return wrap;
 }
@@ -1883,7 +1985,7 @@ function buildObjVisual(item){
 const EVIDENCE_ITEMS={
 
   'case_file_7_19':{
-    id:'case_file_7_19',name:'Case File 7-19',shortName:'Case 7-19',
+    id:'case_file_7_19',hint:'Division 7 case record',name:'Case File 7-19',shortName:'Case 7-19',
     type:'Document',objType:'folder',folderLabel:'CASE 7-19\nKAEL T.',
     unlocksChoice:'read_case_file',
     render:()=>`<div class="ev-doc"><div class="ev-doc-paper">
@@ -1900,7 +2002,7 @@ const EVIDENCE_ITEMS={
   },
 
   'chen_id_badge':{
-    id:'chen_id_badge',name:'My ID Badge',shortName:'My Badge',
+    id:'chen_id_badge',hint:'Your identification',name:'My ID Badge',shortName:'My Badge',
     type:'Identification',objType:'badge',
     unlocksChoice:'read_badge',
     render:()=>`<div class="ev-doc" style="padding:10px"><div class="ev-badge">
@@ -1915,7 +2017,7 @@ const EVIDENCE_ITEMS={
   },
 
   'glove_box_photo':{
-    id:'glove_box_photo',name:"Sofia's Photo",shortName:'A Photo',
+    id:'glove_box_photo',hint:'Personal photograph',name:"Sofia's Photo",shortName:'A Photo',
     type:'Personal',objType:'photo',missable:true,
     unlocksChoice:'seen_sofia_photo',
     render:()=>`<div class="ev-doc" style="padding:10px">
@@ -1932,7 +2034,7 @@ const EVIDENCE_ITEMS={
   },
 
   'glove_box_letter':{
-    id:'glove_box_letter',name:'Unsent Letter',shortName:'Letter',
+    id:'glove_box_letter',hint:'Handwritten, unsent',name:'Unsent Letter',shortName:'Letter',
     type:'Personal',objType:'torn',missable:true,
     unlocksChoice:'seen_unsent_letter',
     render:()=>`<div class="ev-doc" style="padding:8px">
@@ -1949,7 +2051,7 @@ const EVIDENCE_ITEMS={
   },
 
   'maintenance_log':{
-    id:'maintenance_log',name:'Maintenance Log',shortName:'Maint. Log',
+    id:'maintenance_log',hint:'Building access log',name:'Maintenance Log',shortName:'Maint. Log',
     type:'Record',objType:'clipping',missable:true,
     unlocksChoice:'seen_maintenance_log',
     render:()=>`<div class="ev-doc"><div class="ev-doc-paper">
@@ -1967,7 +2069,7 @@ const EVIDENCE_ITEMS={
   },
 
   'dispatch_sticky':{
-    id:'dispatch_sticky',name:'Note from Reyes',shortName:'Sticky Note',
+    id:'dispatch_sticky',hint:'Note from your supervisor',name:'Note from Reyes',shortName:'Sticky Note',
     type:'Internal',objType:'sticky',
     unlocksChoice:'seen_sticky',
     render:()=>`<div class="ev-doc" style="padding:10px">
@@ -1983,7 +2085,7 @@ const EVIDENCE_ITEMS={
   },
 
   'thomas_vantex_record':{
-    id:'thomas_vantex_record',name:'Vantex Personnel Record',shortName:'Vantex Doc',
+    id:'thomas_vantex_record',hint:'Personnel file, restricted',name:'Vantex Personnel Record',shortName:'Vantex Doc',
     type:'Document',objType:'paper',stampColor:'red',stampText:'RESTRICTED',
     unlocksChoice:'read_vantex',
     render:()=>`<div class="ev-doc"><div class="ev-doc-paper">
@@ -1999,7 +2101,7 @@ const EVIDENCE_ITEMS={
   },
 
   'march14_batch':{
-    id:'march14_batch',name:'Batch Sign-off Log',shortName:'Batch Log',
+    id:'march14_batch',hint:'System sign-off log',name:'Batch Sign-off Log',shortName:'Batch Log',
     type:'System Record',objType:'chip',
     unlocksChoice:'read_batch',
     render:()=>{
@@ -2020,7 +2122,7 @@ const EVIDENCE_ITEMS={
   },
 
   'radio_transcript':{
-    id:'radio_transcript',name:'Radio Transcript',shortName:'Radio Log',
+    id:'radio_transcript',hint:'Encrypted radio log',name:'Radio Transcript',shortName:'Radio Log',
     type:'Audio Log',objType:'paper',stampColor:'blue',stampText:'COMMS',
     unlocksChoice:'read_radio',
     render:()=>`<div class="ev-doc" style="padding:8px"><div class="ev-transcript">
@@ -2034,7 +2136,7 @@ const EVIDENCE_ITEMS={
   },
 
   'elisa_park_note':{
-    id:'elisa_park_note',name:"Elisa Park's Letter",shortName:'E. Park Letter',
+    id:'elisa_park_note',hint:'Letter, Brackenmore Psych.',name:"Elisa Park's Letter",shortName:'E. Park Letter',
     type:'Handwritten',objType:'note',
     unlocksChoice:'read_elisa',
     render:()=>`<div class="ev-doc" style="padding:8px"><div class="ev-note">
@@ -2052,7 +2154,7 @@ const EVIDENCE_ITEMS={
   },
 
   'prescription_sofia':{
-    id:'prescription_sofia',name:"Sofia's Prescription",shortName:"Sofia's Rx",
+    id:'prescription_sofia',hint:'Paediatric prescription',name:"Sofia's Prescription",shortName:"Sofia's Rx",
     type:'Medical',objType:'prescription',
     unlocksChoice:'seen_prescription',
     render:()=>`<div class="ev-doc" style="padding:8px">
@@ -2069,7 +2171,7 @@ const EVIDENCE_ITEMS={
   },
 
   'seventeen_list':{
-    id:'seventeen_list',name:'The Seventeen',shortName:'The 17',
+    id:'seventeen_list',hint:'Research notes, handwritten',name:'The Seventeen',shortName:'The 17',
     type:'Research',objType:'folder',folderLabel:'THE 17\nKAEL RESEARCH',
     unlocksChoice:'read_seventeen',
     render:()=>`<div class="ev-doc"><div class="ev-doc-paper">
@@ -2282,8 +2384,8 @@ const STORY={
       {speaker:'[INTERNAL]',text:'Divorced 2022. One dependent: minor child, female.',cls:'system-msg',pause:700},
       {speaker:'[INTERNAL]',text:'The child\'s name is redacted. CPS reference 0041-B.',cls:'system-msg',pause:700},
       {speaker:'[INTERNAL]',text:'Psych flag, March 14. Authorised by—',cls:'system-msg',pause:500},
-      {speaker:'[INTERNAL]',text:'Your name.',cls:'crack',pause:900},
-      {speaker:'[INTERNAL]',text:'Dr. M. Chen. Division 7.',cls:'crack',pause:800},
+      {speaker:'[INTERNAL]',text:'Your name.',cls:'revelation',pause:900},
+      {speaker:'[INTERNAL]',text:'Dr. M. Chen. Division 7.',cls:'revelation',pause:800},
       {speaker:'[INTERNAL]',text:'You sit with that for a moment.',cls:'system-msg',pause:600},
       {speaker:'RADIO',text:'Chen. We need you now.',pause:300},
     ],
@@ -2546,7 +2648,7 @@ const STORY={
 
   thomas_sofia_name_lands:{
     messages:[
-      {speaker:'THOMAS',text:'Her name is Sofia.',cls:'npc',pause:1200},
+      {speaker:'THOMAS',text:'Her name is Sofia.',cls:'npc',pause:1400},
       {speaker:'THOMAS',text:'I\'m telling you that because you\'re going to hear it eventually. And I want to be the one who says it first.',cls:'npc',pause:900},
     ],
     choices:[
@@ -2838,7 +2940,7 @@ const STORY={
       {speaker:'DR. CHEN',text:'(The batch. You remember submitting it. The system confirmed receipt. Green checkmark. Done.)',cls:'memory',pause:700},
       {speaker:'DR. CHEN',text:'(But you don\'t remember opening any of them. Not one. You remember the checkmark, not the contents.)',cls:'memory',pause:800},
       {speaker:'[INTERNAL]',text:'This is normal. This is standard practice. You process hundreds of documents.',cls:'system-msg',pause:600},
-      {speaker:'[INTERNAL]',text:'This is normal.',cls:'system-msg',pause:400},
+      {speaker:'[INTERNAL]',text:'This is normal.',cls:'crack',pause:400},
       {speaker:'DR. CHEN',text:'(You\'ve said that to yourself before. About other things.)',cls:'crack',pause:900},
     ],
     auto:'chen_doubt_6',autoDelay:300,
@@ -3193,9 +3295,9 @@ const STORY={
       {speaker:'[INTERNAL]',text:'There it is.',cls:'crack',pause:500},
       {speaker:'[INTERNAL]',text:'Not: do you believe the files? Not: do you believe the pattern?',cls:'system-msg',pause:600},
       {speaker:'[INTERNAL]',text:'Do you believe him.',cls:'crack',pause:900},
-      {speaker:'[INTERNAL]',text:'Sofia is five years old.',cls:'memory',pause:700},
-      {speaker:'[INTERNAL]',text:'You spent three seconds on document thirty-one.',cls:'memory',pause:800},
-      {speaker:'[INTERNAL]',text:'You don\'t remember opening it.',cls:'crack',pause:900},
+      {speaker:'[INTERNAL]',text:'Sofia is five years old.',cls:'revelation',pause:700},
+      {speaker:'[INTERNAL]',text:'You spent three seconds on document thirty-one.',cls:'revelation',pause:800},
+      {speaker:'[INTERNAL]',text:'You don\'t remember opening it.',cls:'revelation',pause:900},
     ],
     choices:()=>{
       const choices=[
@@ -3250,7 +3352,7 @@ const STORY={
       {speaker:'[INTERNAL]',text:'Three weeks later, you request your own Division 7 personnel file.',cls:'system-msg',pause:500},
       {speaker:'[INTERNAL]',text:'The system shows no record of Thomas Kael.',cls:'system-msg',pause:600},
       {speaker:'[INTERNAL]',text:'Your March 14th batch — forty-seven signatures — is gone.',cls:'system-msg',pause:600},
-      {speaker:'[INTERNAL]',text:'Sofia\'s CPS case reference 0041-B is still open.',cls:'system-msg highlight',pause:1000},
+      {speaker:'[INTERNAL]',text:'Sofia\'s CPS case reference 0041-B is still open.',cls:'revelation',pause:1000},
     ],
     auto:'end_screen_trigger',autoDelay:1000,
   },
@@ -3431,7 +3533,7 @@ const STORY={
       {speaker:'DR. CHEN',text:'I—',cls:'player',pause:400},
       {speaker:'[INTERNAL]',text:'You reach for your Division 7 ID badge.',cls:'system-msg',pause:500},
       {speaker:'[INTERNAL]',text:'The name on it is correct.',cls:'system-msg',pause:400},
-      {speaker:'[INTERNAL]',text:'The photograph is not you.',cls:'system-msg highlight',pause:1000},
+      {speaker:'[INTERNAL]',text:'The photograph is not you.',cls:'revelation',pause:1000},
       {speaker:'THOMAS',text:'Hey — step back from the edge.',cls:'npc',pause:500},
       {speaker:'[SYSTEM]',text:'Signal lost.',cls:'system-msg',pause:800},
       {speaker:'[SYSTEM]',text:'Signal lost.',cls:'system-msg',pause:500},
