@@ -73,7 +73,22 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
 #choice-list{display:flex;flex-direction:column;gap:5px;}
 .choice-btn{background:none;border:1px solid var(--line);color:var(--text);font-family:var(--mono);font-size:13px;text-align:left;padding:7px 12px;cursor:pointer;border-radius:2px;letter-spacing:0.02em;transition:all 0.15s ease;position:relative;overflow:hidden;}
 
-/* Choices rendered while dialogue still typing — appear but dimmed */
+/* Typing cursor on active message */
+.msg-typing .msg-text::after{
+  content:'▋';
+  display:inline-block;
+  color:var(--text-muted);
+  animation:cursorBlink 0.7s ease infinite;
+  margin-left:1px;
+  font-size:0.85em;
+}
+@keyframes cursorBlink{0%,100%{opacity:1}50%{opacity:0}}
+/* Waiting for input indicator on choice panel */
+#choices-label.waiting::after{
+  content:' ●';
+  color:var(--accent);
+  animation:cursorBlink 1s ease infinite;
+}
 #choices.dialogue-active .choice-btn:not(.locked-choice){
   opacity:0.35;cursor:default;
 }
@@ -350,7 +365,19 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
 .obj-torn-line{height:1px;background:rgba(0,0,0,0.12);}
 .obj-torn-line.handwritten{height:1px;background:rgba(30,30,80,0.3);transform:rotate(-0.5deg);}
 
-/* ACTION CHOICES — physical/bold options */
+/* PERSONALITY-TYPED CHOICES */
+.pers-hard{border-color:rgba(200,100,100,0.25);}
+.pers-hard .choice-prefix{color:rgba(200,100,100,0.5);}
+.pers-hard:hover{border-color:#c87a7a;color:#c87a7a;}
+.pers-hard:hover::before{background:#c87a7a;}
+.pers-soft{border-color:rgba(100,160,200,0.25);}
+.pers-soft .choice-prefix{color:rgba(100,160,200,0.5);}
+.pers-soft:hover{border-color:#7ab8d8;color:#7ab8d8;}
+.pers-soft:hover::before{background:#7ab8d8;}
+.pers-detached{border-color:rgba(140,140,160,0.25);}
+.pers-detached .choice-prefix{color:rgba(140,140,160,0.5);}
+.pers-detached:hover{border-color:#9898b0;color:#9898b0;}
+.pers-detached:hover::before{background:#9898b0;}
 .choice-btn.action-choice{
   border-color:rgba(200,168,122,0.2);
   background:rgba(200,168,122,0.03);
@@ -665,10 +692,33 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
 // ═══════════════════════════════════════════════════════
 // GAME STATE
 // ═══════════════════════════════════════════════════════
-const G={reliability:100,time:22*60+14,chapter:0,flags:{},choiceCount:0,endingType:'',contradictions:0,usedChoices:new Set()};
+const G={reliability:100,time:22*60+14,chapter:0,flags:{},choiceCount:0,endingType:'',contradictions:0,usedChoices:new Set(),
+  personality:{hard:0,soft:0,detached:0} // tracks Mara's emerging character
+};
 
 // ═══════════════════════════════════════════════════════
-// AUDIO ENGINE — Web Audio API procedural music
+// PERSONALITY SYSTEM
+// ═══════════════════════════════════════════════════════
+function shiftPersonality(axis, amount=1){
+  if(G.personality[axis]!==undefined) G.personality[axis]+=amount;
+}
+function dominant(){
+  const p=G.personality;
+  const m=Math.max(p.hard,p.soft,p.detached);
+  if(m===0) return null;
+  if(p.hard===m) return 'hard';
+  if(p.soft===m) return 'soft';
+  return 'detached';
+}
+// Returns true if a personality axis meets a threshold
+function isPers(axis,min=2){ return G.personality[axis]>=min; }
+
+// Personality CSS classes on choice buttons
+const PERS_STYLE={
+  hard:'choice-btn pers-hard',
+  soft:'choice-btn pers-soft',
+  detached:'choice-btn pers-detached',
+};
 // ═══════════════════════════════════════════════════════
 let AC=null,audioEnabled=true,masterGain=null;
 let droneOsc=null,droneLfo=null,pulseOsc=null,rainNode=null,noiseGain=null;
@@ -680,31 +730,30 @@ function initAudio(){
     AC=new(window.AudioContext||window.webkitAudioContext)();
     masterGain=AC.createGain();
     masterGain.gain.setValueAtTime(0.0,AC.currentTime);
-    masterGain.gain.linearRampToValueAtTime(0.51,AC.currentTime+3); // 60% of 0.85
+    masterGain.gain.linearRampToValueAtTime(0.42,AC.currentTime+4); // softer start
     masterGain.connect(AC.destination);
 
-    // ── DRONE — deep ambient pad, two detuned saws
-    const droneFreq=55; // A1
+    // ── DRONE — two detuned sines (softer than saws)
+    const droneFreq=55;
     droneOsc=AC.createOscillator();
-    droneOsc.type='sawtooth';
+    droneOsc.type='sine';  // sine = much gentler than sawtooth
     droneOsc.frequency.value=droneFreq;
     const droneOsc2=AC.createOscillator();
-    droneOsc2.type='sawtooth';
-    droneOsc2.frequency.value=droneFreq*1.003; // slight detune = warmth
+    droneOsc2.type='sine';
+    droneOsc2.frequency.value=droneFreq*1.004;
 
     const droneFilter=AC.createBiquadFilter();
     droneFilter.type='lowpass';
-    droneFilter.frequency.value=280;
-    droneFilter.Q.value=2;
+    droneFilter.frequency.value=320;
+    droneFilter.Q.value=1.2; // less resonance = less heaviness
 
     const droneGain=AC.createGain();
-    droneGain.gain.value=0.18;
+    droneGain.gain.value=0.12; // quieter baseline
 
-    // LFO on filter cutoff — slow breath
     droneLfo=AC.createOscillator();
-    droneLfo.frequency.value=0.07;
+    droneLfo.frequency.value=0.05; // slower breath
     const lfoGain=AC.createGain();
-    lfoGain.gain.value=80;
+    lfoGain.gain.value=60;
     droneLfo.connect(lfoGain);
     lfoGain.connect(droneFilter.frequency);
 
@@ -714,40 +763,48 @@ function initAudio(){
     droneGain.connect(masterGain);
     droneOsc.start();droneOsc2.start();droneLfo.start();
 
-    // ── RAIN / WHITE NOISE ──
+    // ── RAIN / WHITE NOISE — two layers ──
+    // Layer 1: stress-reactive (builds with tension)
     const bufferSize=AC.sampleRate*2;
     const noiseBuffer=AC.createBuffer(1,bufferSize,AC.sampleRate);
     const data=noiseBuffer.getChannelData(0);
     for(let i=0;i<bufferSize;i++) data[i]=(Math.random()*2-1);
     rainNode=AC.createBufferSource();
-    rainNode.buffer=noiseBuffer;
-    rainNode.loop=true;
-
+    rainNode.buffer=noiseBuffer;rainNode.loop=true;
     const rainFilter=AC.createBiquadFilter();
-    rainFilter.type='bandpass';
-    rainFilter.frequency.value=1200;
-    rainFilter.Q.value=0.3;
-
-    noiseGain=AC.createGain();
-    noiseGain.gain.value=0.0; // starts silent, increases with rain
-
-    rainNode.connect(rainFilter);
-    rainFilter.connect(noiseGain);
-    noiseGain.connect(masterGain);
+    rainFilter.type='bandpass';rainFilter.frequency.value=900;rainFilter.Q.value=0.4;
+    noiseGain=AC.createGain();noiseGain.gain.value=0.0;
+    rainNode.connect(rainFilter);rainFilter.connect(noiseGain);noiseGain.connect(masterGain);
     rainNode.start();
 
-    // ── TENSION PULSE — subtle heartbeat-like thud ──
+    // Layer 2: always-on ambient rain — soft, high-passed, constant presence
+    const ambBuf=AC.createBuffer(1,bufferSize,AC.sampleRate);
+    const ambData=ambBuf.getChannelData(0);
+    for(let i=0;i<bufferSize;i++) ambData[i]=(Math.random()*2-1);
+    const ambRain=AC.createBufferSource();
+    ambRain.buffer=ambBuf;ambRain.loop=true;
+    const ambFilter=AC.createBiquadFilter();
+    ambFilter.type='highpass';ambFilter.frequency.value=3500; // high-pass = hiss of distant rain
+    const ambFilter2=AC.createBiquadFilter();
+    ambFilter2.type='lowpass';ambFilter2.frequency.value=8000;
+    const ambGain=AC.createGain();
+    ambGain.gain.value=0.022; // always on, very quiet
+    ambRain.connect(ambFilter);ambFilter.connect(ambFilter2);ambFilter2.connect(ambGain);ambGain.connect(masterGain);
+    ambRain.start();
+
+    // ── TENSION PULSE — very subtle, only under stress ──
     tensionOsc=AC.createOscillator();
     tensionOsc.type='sine';
-    tensionOsc.frequency.value=80;
+    tensionOsc.frequency.value=65;
     tensionGain=AC.createGain();
     tensionGain.gain.value=0;
     tensionOsc.connect(tensionGain);
     tensionGain.connect(masterGain);
     tensionOsc.start();
 
-    // start pulse loop
     schedulePulse();
+    scheduleSilenceGap(); // breathing silence every ~90s
+    scheduleAutoDuck();   // auto-reduce volume after 8 minutes
 
     audioInitialized=true;
   }catch(e){console.warn('Audio unavailable',e);}
@@ -755,14 +812,45 @@ function initAudio(){
 
 function schedulePulse(){
   if(!AC||!tensionGain) return;
-  const interval=4000-(G.reliability/100)*2000; // faster when stressed
-  const vol=0.0+(1-G.reliability/100)*0.12;
+  const interval=4000-(G.reliability/100)*2000;
+  const vol=(1-G.reliability/100)*0.08; // reduced max volume
   const now=AC.currentTime;
   tensionGain.gain.cancelScheduledValues(now);
   tensionGain.gain.setValueAtTime(0,now);
   tensionGain.gain.linearRampToValueAtTime(vol,now+0.04);
   tensionGain.gain.exponentialRampToValueAtTime(0.0001,now+0.4);
   setTimeout(schedulePulse, interval);
+}
+
+// Breathing silence — every 80-110 seconds, briefly dip the drone
+function scheduleSilenceGap(){
+  if(!AC||!masterGain) return;
+  const wait=80000+Math.random()*30000;
+  setTimeout(()=>{
+    if(!audioInitialized) return;
+    const sliderVal=Number(document.getElementById('vol-slider')?.value||60);
+    const baseVol=(sliderVal/100)*0.85;
+    const now=AC.currentTime;
+    // Dip to 15% of current volume for 4-8 seconds
+    masterGain.gain.linearRampToValueAtTime(baseVol*0.15,now+2);
+    const dipDuration=4000+Math.random()*4000;
+    setTimeout(()=>{
+      if(!AC) return;
+      masterGain.gain.linearRampToValueAtTime(baseVol,AC.currentTime+3);
+    }, dipDuration);
+    scheduleSilenceGap(); // reschedule
+  }, wait);
+}
+
+// Auto-duck — after 8 minutes the music gradually fades to 40% to prevent fatigue
+function scheduleAutoDuck(){
+  if(!AC||!masterGain) return;
+  setTimeout(()=>{
+    if(!audioInitialized||!AC) return;
+    const sliderVal=Number(document.getElementById('vol-slider')?.value||60);
+    const baseVol=(sliderVal/100)*0.85;
+    masterGain.gain.linearRampToValueAtTime(baseVol*0.4,AC.currentTime+30);
+  }, 8*60*1000);
 }
 
 function updateAudioMood(){
@@ -1324,32 +1412,27 @@ function drawPOV(W,H){
   }
 
   // ── THOMAS — standing at the far ledge, visible above the parapet ──
-  // In POV, he's ~12m away. At standing height camera, parapet hides his legs.
-  // He appears at roughly W*0.62, upper body above wall line.
-  const thomasX = W * 0.62;
-  // The ledge where he stands (far edge of roof) sits at wallY - 6 from this POV
-  const thomasFootY = wallY - 4;
-  // At ~12m distance, a 1.8m person is about 60-70px tall in this frame
-  const figH = 68 + sceneState.thomasEdgeDist * 6; // moves slightly as trust shifts
-  const figW = 18;
-  // Sway — wind + low reliability
+  // Distance driven by flags: stepped closer or sat beside him = he's larger
+  const isClose = G.flags.sat_on_ledge || G.flags.stepped_closer;
+  const proximityScale = isClose ? 1.55 : 1.0;
+  const thomasX = isClose ? W * 0.55 : W * 0.62;
+  const figH = (68 + sceneState.thomasEdgeDist * 6) * proximityScale;
+  const figW = 18 * proximityScale;
   const sway = Math.sin(t * 0.38) * 2.2 * (1 + sceneState.glitchLevel * 1.8);
   const fx = Math.round(thomasX + sway);
 
-  // Atmospheric glow behind Thomas — light from the city below him
+  // Anchor: waist sits exactly on the wall cap — figure grows upward from there
+  const waistY = wallY - 2;
+  const topY = waistY - figH * 0.58; // visible height above wall (torso + head)
+
+  // Atmospheric glow
   const trust = G.reliability / 100;
   const gA = 0.07 + trust * 0.06;
-  const gg = ctx.createRadialGradient(fx, thomasFootY - figH * 0.5, 0, fx, thomasFootY - figH * 0.5, 55);
+  const gg = ctx.createRadialGradient(fx, waistY - figH * 0.3, 0, fx, waistY - figH * 0.3, 55 * proximityScale);
   gg.addColorStop(0, `rgba(90,110,160,${gA})`);
   gg.addColorStop(1, 'transparent');
   ctx.fillStyle = gg;
-  ctx.fillRect(fx - 60, thomasFootY - figH - 20, 120, figH + 30);
-
-  // His silhouette — coat and head, no legs (hidden by wall)
-  // Visible portion: from waist up (about 55% of total height shows above wall)
-  const visibleH = figH * 0.58;
-  const topY = thomasFootY - figH; // top of head
-  const waistY = thomasFootY - figH * 0.42; // where wall occludes
+  ctx.fillRect(fx - 70 * proximityScale, topY - 20, 140 * proximityScale, figH * 0.8);
 
   // Coat body
   ctx.fillStyle = 'rgba(10,10,18,0.97)';
@@ -1635,13 +1718,18 @@ function addMessage(speaker,text,cls=''){
     const txt=document.createElement('div');txt.className='msg-text';
     msg.appendChild(spk);msg.appendChild(txt);
     dlg.appendChild(msg);dlg.scrollTop=dlg.scrollHeight;
+    msg.classList.add('msg-typing');
     let i=0;
     const speed=cls.includes('system')||cls.includes('memory')||cls.includes('crack')?22:17;
     const timer=setInterval(()=>{
       if(typingPaused) return; // wait while desk is open
       txt.textContent=text.slice(0,i);i++;
       dlg.scrollTop=dlg.scrollHeight;
-      if(i>text.length){clearInterval(timer);setTimeout(resolve,160);}
+      if(i>text.length){
+        clearInterval(timer);
+        msg.classList.remove('msg-typing');
+        setTimeout(resolve,160);
+      }
     },speed);
   });
 }
@@ -1663,15 +1751,19 @@ function showChoices(choices, isRefresh=false){
     const btn=document.createElement('button');
     let cls='choice-btn';
     if(c.type==='action') cls+=' action-choice';
+    if(c.persona) cls+=' pers-'+c.persona;
     if(c.dangerous) cls+=' danger-choice';
     if(isLocked) cls+=' locked-choice';
     if(isRefresh && !isLocked) cls+=' unlocked-flash';
     btn.className=cls;
     const prefix=`<span class="choice-prefix">[${prefixes[i]}]</span>`;
     const hint=isLocked
-      ? `<span class="lock-hint">[read ${EVIDENCE_ITEMS[c.requiresDoc]?.shortName||'document'} first]</span>`
+      ? `<span class="lock-hint">[locked]</span>`
       : '';
-    btn.innerHTML=`${prefix}${c.text}${hint}`;
+    const displayText=isLocked
+      ? `<span style="color:var(--text-muted);letter-spacing:0.05em">██████████████████</span>`
+      : c.text;
+    btn.innerHTML=`${prefix}${displayText}${hint}`;
     if(!isLocked){
       btn.onclick=()=>{
         if(!dialogueDone) return; // block until all dialogue finished
@@ -1827,12 +1919,15 @@ const EVIDENCE_ITEMS={
     type:'Personal',objType:'photo',missable:true,
     unlocksChoice:'seen_sofia_photo',
     render:()=>`<div class="ev-doc" style="padding:10px">
-      <div style="background:#0a0a10;padding:8px;border:1px solid #1a1a28;margin-bottom:10px;">
-        <div style="width:100%;height:80px;background:linear-gradient(160deg,#12121e,#0e0e18);display:flex;align-items:center;justify-content:center;border:1px solid #2a2a3a;">
-          <div style="text-align:center;font-family:var(--mono);font-size:8px;color:#4a4a6a;line-height:1.8">A girl, maybe four years old.<br>She holds a paper boat.<br>She is laughing at something<br>outside the frame.</div>
+      <div style="background:#080808;border:3px solid #f0ebe0;padding:0;box-shadow:0 2px 8px rgba(0,0,0,0.7);margin-bottom:12px;">
+        <div style="width:100%;height:110px;background:linear-gradient(135deg,#12101a 0%,#1a1424 40%,#0e0e16 100%);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;">
+          <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 38% 40%,rgba(180,160,120,0.09) 0%,transparent 65%);"></div>
+          <div style="font-family:Georgia,serif;font-size:16px;color:rgba(220,200,160,0.12);letter-spacing:0.3em;text-transform:uppercase">PHOTO</div>
         </div>
       </div>
-      <div style="font-size:9px;color:var(--text-muted);font-style:italic;text-align:center;line-height:1.8;padding:0 4px">Found on the dashboard of Kael's car.<br>On the back, in blue pen:<br><span style="color:var(--accent);font-style:normal">"Papa's girl."</span></div>
+      <div style="background:#f8f4e8;padding:8px 10px;border:1px solid #e0d8c0;font-family:Georgia,serif;font-size:11px;color:#3a2a10;line-height:1.6;transform:rotate(0.5deg)">
+        Papa's girl.
+      </div>
     </div>`
   },
 
@@ -1840,20 +1935,17 @@ const EVIDENCE_ITEMS={
     id:'glove_box_letter',name:'Unsent Letter',shortName:'Letter',
     type:'Personal',objType:'torn',missable:true,
     unlocksChoice:'seen_unsent_letter',
-    render:()=>`<div class="ev-doc" style="padding:8px"><div class="ev-note" style="position:relative;">
-      <div style="position:absolute;top:6px;right:8px;font-size:8px;color:#8a7060;font-style:italic">unsent</div>
-      <span class="ev-note-line" style="font-size:10px;font-weight:600;color:#2a2018">Sofia,</span>
-      <span class="ev-note-line" style="margin-top:8px">By the time you can read this,</span>
-      <span class="ev-note-line">I hope none of it matters.</span>
-      <span class="ev-note-line" style="margin-top:8px">I hope you think I was dramatic.</span>
-      <span class="ev-note-line">I hope I was.</span>
-      <span class="ev-note-line" style="margin-top:8px">But if you are reading this</span>
-      <span class="ev-note-line">because something happened —</span>
-      <span class="ev-note-line" style="margin-top:8px;text-decoration:line-through;color:#8a7060">I need you to know it</span>
-      <span class="ev-note-line" style="text-decoration:line-through;color:#8a7060">was not because I did not</span>
-      <span class="ev-note-line" style="margin-top:6px;color:#2a2018">Know that I tried.</span>
-      <span class="ev-note-line" style="margin-top:10px;color:#8a7060">— Dad</span>
-    </div></div>`
+    render:()=>`<div class="ev-doc" style="padding:8px">
+      <div style="background:#f5f0e2;padding:16px 14px 20px;font-family:Georgia,serif;font-size:11px;color:#2a2018;line-height:2;position:relative;border:1px solid #ddd0b8;box-shadow:1px 2px 5px rgba(0,0,0,0.3);">
+        <div style="position:absolute;top:8px;right:10px;font-size:8px;color:#b09070;font-style:italic;letter-spacing:0.05em">not sent</div>
+        <div style="margin-bottom:10px">Sofia,</div>
+        <div>By the time you can read this,<br>I hope none of it matters.<br>I hope you think I was dramatic.<br>I hope I was.</div>
+        <div style="margin-top:10px">But if you are reading this<br>because something happened —</div>
+        <div style="margin-top:10px;color:#9a8070;text-decoration:line-through">I need you to know it was not<br>because I did not</div>
+        <div style="margin-top:8px">Know that I tried.</div>
+        <div style="margin-top:16px;color:#8a7060">— Dad</div>
+      </div>
+    </div>`
   },
 
   'maintenance_log':{
@@ -1870,7 +1962,7 @@ const EVIDENCE_ITEMS={
         <div>22:04</div><div>DIV7-CHEN</div>
       </div>
       <hr class="ev-doc-divider">
-      <div style="font-size:8px;color:#8a7060;font-style:italic">VX-04471 — Kael's expired Vantex badge.<br>Should not have worked.<br><span style="color:#c87a7a">It did.</span></div>
+      <div style="font-size:8px;color:#8a7060;font-style:italic">VX-04471 — Vantex employee prefix.<br>Badge status at time of entry: <span style="color:#c87a7a">EXPIRED (MEDICAL LEAVE)</span>.</div>
     </div></div>`
   },
 
@@ -1887,7 +1979,6 @@ const EVIDENCE_ITEMS={
         <div style="margin-top:8px">Think about that.</div>
         <div style="margin-top:8px;color:#6a5010">— Reyes</div>
       </div>
-      <div style="margin-top:8px;font-size:9px;color:var(--text-muted);font-style:italic;text-align:center">Left in your jacket pocket.<br>Before you got in the car.</div>
     </div>`
   },
 
@@ -1957,7 +2048,7 @@ const EVIDENCE_ITEMS={
       <span class="ev-note-line" style="margin-top:8px">How is Sofia?</span>
       <span class="ev-note-line" style="margin-top:10px;color:#8a7060">— Elisa</span>
     </div>
-    <div style="margin-top:8px;font-size:9px;color:var(--text-muted);font-style:italic;text-align:center;padding:0 8px">Brackenmore Psych. Postmark: 3 weeks ago.<br>She knows his daughter's name.</div></div>`
+    <div style="margin-top:8px;font-size:9px;color:var(--text-muted);font-style:italic;text-align:center;padding:0 8px">Brackenmore Psychiatric.<br>Postmark: 3 weeks ago.</div></div>`
   },
 
   'prescription_sofia':{
@@ -1972,7 +2063,7 @@ const EVIDENCE_ITEMS={
         <div style="margin-top:6px"><span style="color:#8a7060">Medication:</span> <span style="color:#c87a7a">Risperidone 0.25mg</span></div>
         <div><span style="color:#8a7060">Indication:</span> Attachment disorder</div>
         <hr style="border:none;border-top:1px solid #e0d0b8;margin:8px 0">
-        <div style="font-size:8px;color:#8a7060;font-style:italic">Found in Thomas's coat pocket.<br>A five-year-old. Three months in state care.<br><span style="color:#c87a7a">Antipsychotics.</span></div>
+        <div style="font-size:8px;color:#8a7060;border-top:1px solid #e0d0b8;padding-top:6px;margin-top:4px;font-style:italic">Three months in care.<br>First prescription: day four.</div>
       </div>
     </div>`
   },
@@ -2077,8 +2168,10 @@ function clearChoices(){
 
 async function makeChoice(choice){
   clearChoices();G.choiceCount++;updateTime();
+  document.getElementById('choices-label').classList.remove('waiting');
   // Record this choice as used so it won't appear again
   if(choice.flag) G.usedChoices.add(choice.flag);
+  if(choice.persona) shiftPersonality(choice.persona);
   if(choice.reliability!==undefined){
     G.reliability=Math.max(0,Math.min(100,G.reliability+choice.reliability));
     updateReliabilityUI();
@@ -2122,13 +2215,15 @@ async function runNode(id){
   const node=STORY[id];
   if(!node){isProcessing=false;return;}
   if(node.setup) await node.setup();
-  for(const msg of(node.messages||[])){
+  const msgs=typeof node.messages==='function'?node.messages():(node.messages||[]);
+  for(const msg of msgs){
     await addMessage(msg.speaker,msg.text,msg.cls||'');
     if(msg.pause) await delay(msg.pause);
   }
   // All messages and pauses finished — now safe to show choices
   dialogueDone=true;
   document.getElementById('choices').classList.remove('dialogue-active');
+  document.getElementById('choices-label').classList.add('waiting');
   if(node.choices){
     let choices=node.choices;
     if(typeof choices==='function') choices=choices();
@@ -2137,7 +2232,8 @@ async function runNode(id){
   if(node.auto){
     isProcessing=false;
     await delay(node.autoDelay||700);
-    await runNode(node.auto);
+    const nextId=typeof node.auto==='function'?node.auto():node.auto;
+    await runNode(nextId);
     return;
   }
   isProcessing=false;
@@ -2158,64 +2254,53 @@ const STORY={
       addEvidence('chen_id_badge');
     },
     messages:[
-      {speaker:'[INTERNAL]',text:'Reyes left a note in your jacket pocket. You found it when you got in the car.',cls:'system-msg',pause:800},
-      {speaker:'[INTERNAL]',text:'"Mara — Kael asked for you by name. Not senior. YOU. Think about that. — Reyes"',cls:'memory',pause:1000},
-      {speaker:'[INTERNAL]',text:'You\'ve been thinking about it for eleven minutes.',cls:'system-msg',pause:700},
-      {speaker:'RADIO',text:'Chen. Uniform says subject\'s been stationary twenty-two minutes. No weapons. He asked for someone senior.',pause:600},
-      {speaker:'DR. CHEN',text:'He asked for me specifically.',cls:'player',pause:300},
-      {speaker:'RADIO',text:'...Yeah. You. Personal request, came through the duty desk.',pause:500},
-      {speaker:'RADIO',text:'We don\'t know how he got your name. Could be nothing.',pause:400},
-      {speaker:'[INTERNAL]',text:'It\'s not nothing.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'Reyes left a note in your jacket pocket. You found it getting into the car.',cls:'system-msg',pause:700},
+      {speaker:'[INTERNAL]',text:'"Kael asked for you by name. Not senior. YOU."',cls:'memory',pause:900},
+      {speaker:'[INTERNAL]',text:'You\'ve been sitting with that for eleven minutes.',cls:'system-msg',pause:600},
+      {speaker:'RADIO',text:'Chen. Still stationary. No movement. Dispatch needs you up there, he won\'t talk to the uniform.',pause:600},
+      {speaker:'DR. CHEN',text:'Two minutes.',cls:'player',pause:300},
+      {speaker:'RADIO',text:'You don\'t have two minutes. He asked for you specifically. Personal.',pause:400},
     ],
     choices:[
-      {text:"Pull over for a moment. Check the glove box — the uniform said Kael's car was still downstairs.",
-       reliability:5,flag:'checked_car',next:'pre_intro_car'},
-      {text:"Keep driving. Whatever it is, you'll handle it on the roof.",
-       reliability:0,flag:'skipped_car',next:'pre_intro_elevator'},
+      {text:"Tell dispatch you're two minutes out. You need to look at the file properly.",
+       flag:'took_time',next:'pre_intro_file_read'},
+      {text:"Copy that. Thirty seconds.",
+       flag:'rushed_in',next:'pre_intro_elevator'},
     ]
   },
 
-  pre_intro_car:{
+  pre_intro_file_read:{
     setup:async()=>{
-      setAtmosphere('Harmon Tower — Underground Parking, B2','His car is still here. A grey sedan. Nothing special.');
-      addEvidence('glove_box_photo');
-      addEvidence('glove_box_letter');
+      addEvidence('case_file_7_19');
     },
     messages:[
-      {speaker:'[INTERNAL]',text:'The glove box is unlocked. The uniform didn\'t close it properly.',cls:'system-msg',pause:600},
-      {speaker:'[INTERNAL]',text:'A photo, face-down on the dashboard. An envelope, unsealed, in the side pocket.',cls:'system-msg',pause:700},
-      {speaker:'[INTERNAL]',text:'You turn the photo over.',cls:'system-msg',pause:500},
-      {speaker:'[INTERNAL]',text:'A girl. Four years old, maybe. Holding a paper boat. Laughing at something outside the frame.',cls:'memory',pause:1000},
-      {speaker:'[INTERNAL]',text:'"Papa\'s girl." Blue pen. His handwriting.',cls:'memory',pause:800},
-      {speaker:'[INTERNAL]',text:'The envelope. You shouldn\'t read it. You read it anyway.',cls:'system-msg',pause:700},
-      {speaker:'[INTERNAL]',text:'It\'s a letter to his daughter. Unsent. The kind you write when you\'re not sure you\'ll be around to send it.',cls:'system-msg',pause:1000},
-      {speaker:'[INTERNAL]',text:'Two sentences are crossed out. The ones that started: "I need you to know it was not because I did not—"',cls:'memory',pause:900},
-      {speaker:'[INTERNAL]',text:'He couldn\'t finish it.',cls:'system-msg',pause:600},
+      {speaker:'RADIO',text:'Chen—',pause:200},
+      {speaker:'DR. CHEN',text:'Two minutes.',cls:'player',pause:400},
+      {speaker:'[INTERNAL]',text:'You pull over. The radio goes quiet. They don\'t like it.',cls:'system-msg',pause:700},
+      {speaker:'[INTERNAL]',text:'You open the file properly this time. Not skimming. Reading.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'Kael, Thomas. Thirty-four. Former data analyst, Vantex Corp.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'Divorced 2022. One dependent: minor child, female.',cls:'system-msg',pause:700},
+      {speaker:'[INTERNAL]',text:'The child\'s name is redacted. CPS reference 0041-B.',cls:'system-msg',pause:700},
+      {speaker:'[INTERNAL]',text:'Psych flag, March 14. Authorised by—',cls:'system-msg',pause:500},
+      {speaker:'[INTERNAL]',text:'Your name.',cls:'crack',pause:900},
+      {speaker:'[INTERNAL]',text:'Dr. M. Chen. Division 7.',cls:'crack',pause:800},
+      {speaker:'[INTERNAL]',text:'You sit with that for a moment.',cls:'system-msg',pause:600},
+      {speaker:'RADIO',text:'Chen. We need you now.',pause:300},
     ],
-    auto:'pre_intro_elevator',autoDelay:600,
+    auto:'pre_intro_elevator',autoDelay:400,
   },
 
   pre_intro_elevator:{
     setup:async()=>{
-      setAtmosphere('Harmon Tower — Elevator 34F','22:08. The building breathes around you.');
-      addEvidence('case_file_7_19');
+      setAtmosphere('Harmon Tower — Lobby / Elevator 34F','22:09. You are late by dispatch standards. Right on time by yours.');
     },
     messages:[
-      {speaker:'[INTERNAL]',text:'The elevator smells like old concrete and recycled air.',cls:'system-msg',pause:700},
-      {speaker:'[INTERNAL]',text:'You open the case file. Kael, Thomas. Thirty-four. Former data analyst.',cls:'system-msg',pause:600},
-      {speaker:'[INTERNAL]',text:'Divorced 2022. One child. Sofia, five years old.',cls:'system-msg',pause:700},
-      {speaker:'[INTERNAL]',text:'Custody: redacted. CPS reference 0041-B.',cls:'system-msg',pause:700},
-      {speaker:'[INTERNAL]',text:'Psych flag, March 14. Authorised by: Dr. M. Chen, Division 7.',cls:'memory',pause:900},
-      {speaker:'[INTERNAL]',text:'Your name. Your sign-off.',cls:'crack',pause:800},
-      {speaker:'[INTERNAL]',text:'No prior incidents. No criminal record. No weapons. Everything clean.',cls:'system-msg',pause:600},
-      {speaker:'[INTERNAL]',text:'The door at the end of the corridor says ROOF ACCESS — NO ENTRY.',cls:'system-msg',pause:500},
+      {speaker:'[INTERNAL]',text:'The lobby officer gives you the floor number without looking up.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'The elevator smells like recycled air and old decisions.',cls:'system-msg',pause:600},
     ],
-    choices:[
-      {text:"Check if there's a maintenance log by the door.",
-       reliability:3,flag:'checked_corridor',next:'pre_intro_corridor'},
-      {text:"Push it open. You already know enough.",
-       reliability:0,flag:'skipped_corridor',next:'pre_intro_roof'},
-    ]
+    // If player took time to read the file, they're the kind of person who notices things
+    auto:()=> G.flags.took_time ? 'pre_intro_corridor' : 'pre_intro_roof',
+    autoDelay:500,
   },
 
   pre_intro_corridor:{
@@ -2223,13 +2308,14 @@ const STORY={
       addEvidence('maintenance_log');
     },
     messages:[
-      {speaker:'[INTERNAL]',text:'A laminated access sheet in a plastic sleeve on the wall.',cls:'system-msg',pause:600},
-      {speaker:'[INTERNAL]',text:'Two maintenance entries earlier tonight. Then at 21:33: VX-04471.',cls:'memory',pause:700},
-      {speaker:'[INTERNAL]',text:'That\'s his Vantex badge. The one that should have been deactivated when he was placed on medical leave.',cls:'system-msg',pause:800},
-      {speaker:'[INTERNAL]',text:'Seven months ago.',cls:'crack',pause:700},
-      {speaker:'[INTERNAL]',text:'Someone kept it active.',cls:'memory',pause:800},
+      {speaker:'[INTERNAL]',text:'Standard laminated sheet. Maintenance, maintenance. Then at 21:33 — a badge ID you don\'t recognise.',cls:'system-msg',pause:700},
+      {speaker:'[INTERNAL]',text:'VX-04471.',cls:'memory',pause:500},
+      {speaker:'[INTERNAL]',text:'Vantex prefix. You\'ve seen those. Former employee.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'A former employee with a still-active access badge, nine months after leaving the company.',cls:'system-msg',pause:800},
+      {speaker:'[INTERNAL]',text:'That doesn\'t happen by accident.',cls:'crack',pause:700},
+      {speaker:'[INTERNAL]',text:'You file it away and go through the door.',cls:'system-msg',pause:500},
     ],
-    auto:'pre_intro_roof',autoDelay:500,
+    auto:'pre_intro_roof',autoDelay:400,
   },
 
   pre_intro_roof:{
@@ -2237,20 +2323,20 @@ const STORY={
       setChapter('01 — First Contact');
       setSceneChapter(0);
       setSpotlight(true,0.65);
-      setAtmosphere('Harmon Tower — Roof, Floor 34','The cold hits first. Then the wind. Then the city.');
+      setAtmosphere('Harmon Tower — Roof, Floor 34','The cold is immediate. The wind pushes back.');
     },
     messages:[
-      {speaker:'[INTERNAL]',text:'The roof is bigger than you expected. It always is.',cls:'system-msg',pause:700},
-      {speaker:'[INTERNAL]',text:'And at the far edge — a figure. Dark coat. Standing very still.',cls:'system-msg',pause:600},
-      {speaker:'[INTERNAL]',text:'You\'ve seen this before. Someone who looks like they\'re saying goodbye, and someone who looks like they own it. You can never tell which one until you get closer.',cls:'system-msg',pause:1100},
-      {speaker:'RADIO',text:'Chen, confirm visual.',pause:400},
-      {speaker:'DR. CHEN',text:'I have him. Stand by.',cls:'player',pause:500},
-      {speaker:'[INTERNAL]',text:'The rules: don\'t escalate. Don\'t lie if you can help it. Don\'t make promises you can\'t keep.',cls:'system-msg',pause:900},
-      {speaker:'[INTERNAL]',text:'Find the thing they actually need to say.',cls:'system-msg',pause:600},
-      {speaker:'[INTERNAL]',text:'Give them enough space to say it.',cls:'system-msg',pause:600},
-      {speaker:'[INTERNAL]',text:'He asked for you by name.',cls:'crack',pause:800},
+      {speaker:'[INTERNAL]',text:'The roof is always bigger than you expect.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'A figure at the far edge. Dark coat. Standing with his hands at his sides — not braced, not leaning. Just standing.',cls:'system-msg',pause:900},
+      {speaker:'[INTERNAL]',text:'You\'ve seen this before. People who\'ve decided something look different from people who haven\'t.',cls:'system-msg',pause:900},
+      {speaker:'[INTERNAL]',text:'He looks like he decided a long time ago.',cls:'memory',pause:700},
+      {speaker:'RADIO',text:'Chen. Visual?',pause:300},
+      {speaker:'DR. CHEN',text:'I have him.',cls:'player',pause:400},
+      {speaker:'[INTERNAL]',text:'The rules exist for a reason: don\'t escalate, don\'t lie if you can help it, don\'t promise what you can\'t deliver.',cls:'system-msg',pause:900},
+      {speaker:'[INTERNAL]',text:'You step onto the roof.',cls:'system-msg',pause:500},
+      {speaker:'[INTERNAL]',text:'He doesn\'t turn around.',cls:'system-msg',pause:700},
     ],
-    auto:'thomas_first',autoDelay:600,
+    auto:'thomas_first',autoDelay:500,
   },
 
   // ─── CHAPTER 1: FIRST CONTACT ───────────────────────
@@ -2281,11 +2367,16 @@ const STORY={
       {speaker:'THOMAS',text:'It means this is a script. You\'re following a script.',cls:'npc',pause:600},
     ],
     choices:[
-      {text:"I'm not following a script. I came because you're still here.",reliability:0,flag:'empathy_open',next:'thomas_responds_empathy'},
-      {text:"What would you rather I do — leave?",reliability:-5,flag:'challenge_open',next:'thomas_responds_challenge'},
-      {text:"My name is Mara. What's yours?",reliability:5,flag:'name_open',next:'thomas_responds_name'},
-      {text:"...(Say nothing. Let him keep talking.)",reliability:3,flag:'silence_open',next:'thomas_responds_silence'},
-      {type:'action',text:"[Step closer to the edge. Close the distance.]",reliability:2,flag:'stepped_closer',next:'thomas_step_closer'},
+      {text:"I'm not following a script. I came because you're still here.",
+       persona:'soft',reliability:0,flag:'empathy_open',next:'thomas_responds_empathy'},
+      {text:"What would you rather I do — leave?",
+       persona:'hard',reliability:-5,flag:'challenge_open',next:'thomas_responds_challenge'},
+      {text:"My name is Mara. What's yours?",
+       persona:'soft',reliability:5,flag:'name_open',next:'thomas_responds_name'},
+      {text:"...(Say nothing. Let him keep talking.)",
+       persona:'detached',reliability:3,flag:'silence_open',next:'thomas_responds_silence'},
+      {type:'action',text:"[Step closer to the edge. Close the distance.]",
+       persona:'hard',reliability:2,flag:'stepped_closer',next:'thomas_step_closer'},
     ]
   },
 
@@ -2336,40 +2427,198 @@ const STORY={
     setup:async()=>{
       setChapter('02 — The Contradiction');
       setSceneChapter(1);
-      addEvidence('prescription_sofia');
     },
     messages:[
-      {speaker:'THOMAS',text:'I was a data integrity specialist. That means I found errors. Inconsistencies between what the system said and what was real.',cls:'npc',pause:600},
-      {speaker:'THOMAS',text:'Seven months ago I found something in Vantex\'s system. My file said I\'d been placed on medical leave. Suicidal ideation. Unfit for work.',cls:'npc',pause:700},
-      {speaker:'THOMAS',text:'I was fine. I\'d never filed anything. I\'d never spoken to anyone.',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'But they sent it to CPS.',cls:'npc',pause:600},
-      {speaker:'THOMAS',text:'Fourteen days after that record appeared, they took Sofia.',cls:'npc',pause:1000},
+      {speaker:'THOMAS',text:'I was a data integrity specialist. I found inconsistencies between what records said and what was true.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'Seven months ago I found one in my own file. Medical leave. Suicidal ideation. Unfit for work.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'I had never spoken to anyone. Never filed anything. I was fine.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'The record was false. But the record was also already running.',cls:'npc',pause:700},
     ],
     choices:[
-      {text:"Sofia. Your daughter.",reliability:10,flag:'named_sofia',next:'thomas_sofia_named',
-       requiresDoc:'case_file_7_19'},
-      {text:"How old is she?",reliability:5,flag:'asked_age',next:'thomas_sofia_age'},
-      {text:"That sounds like a clerical error. Systems make mistakes.",reliability:-12,flag:'dismissed_file',next:'thomas_angry_dismiss'},
-      {text:"Someone put that record there deliberately.",reliability:5,flag:'investigated_file',next:'thomas_investigates'},
+      {text:"What do you mean, already running?",
+       persona:'detached',reliability:5,flag:'asked_running',next:'thomas_already_running'},
+      {text:"That sounds like a clerical error.",
+       persona:'detached',reliability:-12,flag:'dismissed_file',next:'thomas_angry_dismiss'},
+      {text:"Who had access to put something like that in your file?",
+       persona:'hard',reliability:5,flag:'investigated_file',next:'thomas_investigates'},
+      {text:"...(Say nothing. Let him find his way to it.)",
+       persona:'soft',reliability:4,flag:'waited_file',next:'thomas_waits_file'},
     ]
+  },
+
+  thomas_already_running:{
+    messages:[
+      {speaker:'THOMAS',text:'By the time I found it, the system had already used it.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'CPS had already been notified. The notification had already triggered a review.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'The review had already concluded.',cls:'npc',pause:800},
+    ],
+    auto:'thomas_consequence_pause',autoDelay:300,
+  },
+
+  thomas_waits_file:{
+    messages:[
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:1000},
+      {speaker:'THOMAS',text:'The record was being used before I even knew it existed.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'That\'s the thing about a well-timed document. It doesn\'t need to be discovered. It just needs to run.',cls:'npc',pause:900},
+    ],
+    auto:'thomas_consequence_pause',autoDelay:300,
+  },
+
+  thomas_consequence_pause:{
+    messages:[
+      {speaker:'DR. CHEN',text:'What did the review conclude?',cls:'player',pause:400},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'That I was unfit.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'That\'s all I\'m going to say about it for now.',cls:'npc',pause:800},
+      {speaker:'DR. CHEN',text:'(He\'s not done. He\'s deciding how much to tell you.)',cls:'memory',pause:600},
+    ],
+    choices:[
+      {text:"I'm not going anywhere.",
+       persona:'soft',reliability:4,flag:'patient_listen',next:'thomas_consequence_reveal'},
+      {text:"You don't have to say anything you don't want to.",
+       persona:'soft',reliability:3,flag:'gave_space',next:'thomas_consequence_reveal'},
+      {text:"The file I have says no prior incidents. That's all I was given.",
+       persona:'detached',reliability:4,flag:'used_file_context',requiresDoc:'case_file_7_19',next:'thomas_chen_file_moment'},
+      {text:"So something happened that the file doesn't show.",
+       persona:'hard',reliability:2,flag:'pushed_consequence',next:'thomas_pushes_reveal'},
+    ]
+  },
+
+  thomas_pushes_reveal:{
+    messages:[
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'You\'re direct.',cls:'npc',pause:400},
+      {speaker:'DR. CHEN',text:'I don\'t have time to wait.',cls:'player',pause:300},
+      {speaker:'THOMAS',text:'That\'s honest, at least.',cls:'npc',pause:600},
+    ],
+    auto:'thomas_consequence_reveal',autoDelay:400,
+  },
+
+  thomas_chen_file_moment:{
+    messages:[
+      {speaker:'THOMAS',text:'Your file says no prior incidents.',cls:'npc',pause:400},
+      {speaker:'THOMAS',text:'That\'s because the incident they created for me isn\'t in the system as an incident. It\'s in the system as a routine evaluation.',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'Routine. Voluntary. Concluded.',cls:'npc',pause:600},
+    ],
+    auto:'thomas_consequence_reveal',autoDelay:400,
+  },
+
+  thomas_consequence_reveal:{
+    messages:[
+      {speaker:'THOMAS',text:'I had a daughter.',cls:'npc',pause:1000},
+    ],
+    choices:[
+      {text:"...(Don't fill the silence.)",reliability:5,flag:'held_silence',next:'thomas_sofia_slow'},
+      {text:"Had.",reliability:3,flag:'echoed_had',next:'thomas_sofia_had'},
+      {text:"Where is she now?",reliability:0,flag:'asked_where',next:'thomas_sofia_where'},
+    ]
+  },
+
+  thomas_sofia_slow:{
+    messages:[
+      {speaker:'THOMAS',text:'She\'s five. She\'ll be six in November.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'I won\'t be there for it.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'The review concluded I was unfit. The word unfit is doing a lot of work in that sentence.',cls:'npc',pause:900},
+      {speaker:'THOMAS',text:'Unfit means CPS takes custody. Unfit means supervised visits, pending reassessment.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'Unfit means she asks her foster carer why Papa doesn\'t come and the carer has an answer prepared.',cls:'npc',pause:1000},
+    ],
+    auto:'thomas_sofia_name_lands',autoDelay:400,
+  },
+
+  thomas_sofia_had:{
+    messages:[
+      {speaker:'THOMAS',text:'Have.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'She\'s five. She\'s in state care. She\'s fine, they tell me. She asks about me.',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'They say she\'s adapting well.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'I don\'t know what that means for a five-year-old. I try not to think about it too carefully.',cls:'npc',pause:1000},
+    ],
+    auto:'thomas_sofia_name_lands',autoDelay:400,
+  },
+
+  thomas_sofia_where:{
+    messages:[
+      {speaker:'THOMAS',text:'State care facility. An hour outside the city.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'I get supervised visits on the second and fourth Thursday. When they\'re not cancelled.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'They\'ve been cancelled for the past six weeks. The caseworker says she\'s "settling in."',cls:'npc',pause:900},
+    ],
+    auto:'thomas_sofia_name_lands',autoDelay:400,
+  },
+
+  thomas_sofia_name_lands:{
+    messages:[
+      {speaker:'THOMAS',text:'Her name is Sofia.',cls:'npc',pause:1200},
+      {speaker:'THOMAS',text:'I\'m telling you that because you\'re going to hear it eventually. And I want to be the one who says it first.',cls:'npc',pause:900},
+    ],
+    choices:[
+      {text:"The prescription. In your pocket. I saw it when the uniform searched you.",
+       reliability:-4,flag:'mentioned_prescription',requiresDoc:'prescription_sofia',next:'thomas_prescription_moment'},
+      {text:"I know her name. It was in my file.",
+       reliability:6,flag:'admitted_file_knowledge',requiresDoc:'case_file_7_19',next:'thomas_sofia_named'},
+      {text:"Thank you for telling me.",reliability:4,flag:'thanked_telling',next:'thomas_thanks_land'},
+      {text:"...",reliability:2,flag:'held_again',next:'thomas_silence_after_name'},
+    ]
+  },
+
+  thomas_prescription_moment:{
+    setup:async()=>{addEvidence('prescription_sofia');},
+    messages:[
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'Risperidone.',cls:'npc',pause:400},
+      {speaker:'THOMAS',text:'She didn\'t need it before.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'She needed her father. They gave her a medication instead.',cls:'npc',pause:900},
+    ],
+    auto:'thomas_reveals_chen',autoDelay:400,
   },
 
   thomas_sofia_named:{
     messages:[
       {speaker:'THOMAS',text:'...',cls:'npc',pause:900},
-      {speaker:'THOMAS',text:'You read the file.',cls:'npc',pause:400},
-      {speaker:'DR. CHEN',text:'I did.',cls:'player',pause:300},
-      {speaker:'THOMAS',text:'Then you know she\'s five. Then you know she\'s in state care. Then you know she has been there for seven months because of a document with your name on it.',cls:'npc',pause:1000},
+      {speaker:'THOMAS',text:'It\'s in your file.',cls:'npc',pause:500},
+      {speaker:'DR. CHEN',text:'The dependant section. I read the file properly.',cls:'player',pause:400},
+      {speaker:'THOMAS',text:'Properly.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'Before you came up here? Or in the elevator?',cls:'npc',pause:700},
+    ],
+    choices:[
+      {text:"In the car. I pulled over.",reliability:5,flag:'admitted_car_stop',next:'thomas_car_stop_lands'},
+      {text:"In the elevator. I didn't have long.",reliability:0,flag:'admitted_elevator',next:'thomas_elevator_lands'},
+    ]
+  },
+
+  thomas_car_stop_lands:{
+    messages:[
+      {speaker:'THOMAS',text:'You stopped.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'Dispatch would have pushed you.',cls:'npc',pause:400},
+      {speaker:'DR. CHEN',text:'They did.',cls:'player',pause:300},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'Okay.',cls:'npc',pause:400},
     ],
     auto:'thomas_reveals_chen',autoDelay:400,
   },
 
-  thomas_sofia_age:{
+  thomas_elevator_lands:{
     messages:[
-      {speaker:'THOMAS',text:'Five.',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'She turned five in November. I wasn\'t there.',cls:'npc',pause:700},
-      {speaker:'THOMAS',text:'The facility sent me a photo. She\'s holding a paper boat. She looks happy.',cls:'npc',pause:600},
-      {speaker:'THOMAS',text:'I don\'t know if she actually is. I can\'t tell anymore. I can\'t tell anything anymore.',cls:'npc',pause:900},
+      {speaker:'THOMAS',text:'Three minutes. That\'s how long they give you for a file before they push you through a door.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'I spent seven months on it.',cls:'npc',pause:800},
+    ],
+    auto:'thomas_reveals_chen',autoDelay:400,
+  },
+
+  thomas_thanks_land:{
+    messages:[
+      {speaker:'THOMAS',text:'You say that like you weren\'t going to look it up anyway.',cls:'npc',pause:500},
+      {speaker:'DR. CHEN',text:'I already did.',cls:'player',pause:300},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'Fair.',cls:'npc',pause:400},
+    ],
+    auto:'thomas_reveals_chen',autoDelay:400,
+  },
+
+  thomas_silence_after_name:{
+    messages:[
+      {speaker:'THOMAS',text:'You\'re not going to write it down.',cls:'npc',pause:500},
+      {speaker:'DR. CHEN',text:'No.',cls:'player',pause:300},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'Good.',cls:'npc',pause:400},
     ],
     auto:'thomas_reveals_chen',autoDelay:400,
   },
@@ -2482,7 +2731,7 @@ const STORY={
       {speaker:'THOMAS',text:'Let me ask you something, Dr. Chen. Have you ever signed a document without reading it?',cls:'npc',pause:600},
       {speaker:'THOMAS',text:'A batch of case files at the end of a long shift? A system migration? A pre-populated form?',cls:'npc',pause:700},
     ],
-    auto:'chen_memory_crack',autoDelay:400,
+    auto:'thomas_names_pattern',autoDelay:400,
   },
   thomas_on_uncertainty:{
     setup:async()=>{setChapter('03 — The File');},
@@ -2490,24 +2739,46 @@ const STORY={
       {speaker:'THOMAS',text:'You\'re doing it right now. You\'re questioning yourself.',cls:'npc',pause:500},
       {speaker:'THOMAS',text:'That\'s good. That\'s honest. Most people never get that far.',cls:'npc'},
     ],
-    auto:'chen_memory_crack',autoDelay:400,
+    auto:'thomas_names_pattern',autoDelay:400,
   },
   thomas_on_openness:{
     setup:async()=>{setChapter('03 — The File');},
     messages:[
       {speaker:'THOMAS',text:'You want to understand it.',cls:'npc',pause:400},
-      {speaker:'THOMAS',text:'I wanted to understand it too. I spent seven months understanding it.',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'The problem is — the more I understood, the less I was sure about which parts of my life were mine.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'The more I understood, the less I was sure about which parts of my life were mine.',cls:'npc',pause:700},
     ],
-    auto:'chen_memory_crack',autoDelay:400,
+    auto:'thomas_names_pattern',autoDelay:400,
   },
   thomas_has_proof:{
     setup:async()=>{setChapter('03 — The File');},
     messages:[
-      {speaker:'THOMAS',text:'No. You don\'t get to see it. Every time I showed someone, it disappeared from their hands.',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'Not literally. But they\'d get a phone call. Or a message. And then: "I\'m sorry, I can\'t help you with this."',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'No. Every time I showed someone, it disappeared from their hands.',cls:'npc',pause:500},
       {speaker:'THOMAS',text:'You carry the file. You\'re the only one allowed to.',cls:'npc'},
     ],
+    auto:'thomas_names_pattern',autoDelay:400,
+  },
+
+  // Thomas notices Mara's pattern — different text by dominant personality
+  thomas_names_pattern:{
+    setup:async()=>{await delay(300);},
+    messages:()=>{
+      const d=dominant();
+      if(d==='hard') return [
+        {speaker:'THOMAS',text:'You push.',cls:'npc',pause:500},
+        {speaker:'THOMAS',text:'Every question you\'ve asked has been an attempt to find the hole in what I\'m telling you.',cls:'npc',pause:700},
+        {speaker:'THOMAS',text:'That\'s fine. I\'d rather that than someone who nods along.',cls:'npc',pause:600},
+      ];
+      if(d==='soft') return [
+        {speaker:'THOMAS',text:'You listen differently than the others did.',cls:'npc',pause:500},
+        {speaker:'THOMAS',text:'They were always preparing the next thing to say. You actually wait.',cls:'npc',pause:700},
+        {speaker:'THOMAS',text:'I don\'t know if that makes this easier or harder.',cls:'npc',pause:600},
+      ];
+      return [ // detached or null
+        {speaker:'THOMAS',text:'You process information.',cls:'npc',pause:500},
+        {speaker:'THOMAS',text:'That\'s what you\'re doing right now. Not reacting. Processing.',cls:'npc',pause:600},
+        {speaker:'THOMAS',text:'I worked with people like that. Good at systems. Sometimes good at people, too.',cls:'npc',pause:700},
+      ];
+    },
     auto:'chen_memory_crack',autoDelay:400,
   },
 
@@ -2680,9 +2951,12 @@ const STORY={
     setup:async()=>{setChapter('03b — Dispatch');},
     messages:[{speaker:'RADIO',text:'Chen. Status update. How\'s the subject?'}],
     choices:[
-      {text:"Stable. Talking. I need more time.",reliability:3,flag:'radio_stable',next:'chen_radio_response'},
-      {text:"He's making claims about me. About my signature on a case file.",reliability:-8,flag:'radio_disclosed',next:'chen_radio_alarm'},
-      {text:"Fine. He's testing me. Normal deflection.",reliability:0,flag:'radio_deflect',next:'chen_radio_response'},
+      {text:"Stable. Talking. I need more time.",
+       persona:'detached',reliability:3,flag:'radio_stable',next:'chen_radio_response'},
+      {text:"He's making claims about me. About my signature on a case file.",
+       persona:'hard',reliability:-8,flag:'radio_disclosed',next:'chen_radio_alarm'},
+      {text:"Fine. He's testing me. Normal deflection.",
+       persona:'detached',reliability:0,flag:'radio_deflect',next:'chen_radio_response'},
     ]
   },
 
@@ -2828,22 +3102,100 @@ const STORY={
     auto:'thomas_final_approach',autoDelay:400,
   },
 
-  // ─── CHAPTER 5: THE MOMENT ──────────────────────────
+  // ─── CHAPTER 5: THE DECONSTRUCTION ──────────────────
   thomas_final_approach:{
     setup:async()=>{
       setChapter('05 — Signal Lost');
       setSceneChapter(4);
-      setAtmosphere('Harmon Tower — Roof Edge','He turns to face you fully for the first time. His eyes are completely calm.');
+      setAtmosphere('Harmon Tower — Roof Edge','The wind drops for a moment. The city is very loud in the quiet.');
       setThomasLooking(true);
-      G.reliability-=5;updateReliabilityUI();
+      G.reliability-=3;updateReliabilityUI();
       playMemoryChime(6);
       await delay(700);
     },
     messages:[
-      {speaker:'THOMAS',text:'Dr. Chen.',cls:'npc',pause:400},
-      {speaker:'THOMAS',text:'There\'s something I need to ask you. And I need you to answer honestly.',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'Not as a professional. Not as Division 7.',cls:'npc',pause:400},
-      {speaker:'THOMAS',text:'Do you believe me?',cls:'npc',pause:1000},
+      {speaker:'THOMAS',text:'Can I ask you something?',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'Not about the file. Not about Division 7. Not about what comes next.',cls:'npc',pause:700},
+    ],
+    choices:[
+      {text:"Ask.",reliability:3,flag:'opened_final',next:'thomas_final_2'},
+      {text:"...(You say nothing. He can see that means yes.)",reliability:2,flag:'silent_final',next:'thomas_final_2'},
+    ]
+  },
+
+  thomas_final_2:{
+    setup:async()=>{
+      G.reliability-=3;updateReliabilityUI();
+      await delay(300);
+    },
+    messages:[
+      {speaker:'THOMAS',text:'When you drove here tonight — before you knew it was me — what did you think it was going to be?',cls:'npc',pause:900},
+      {speaker:'THOMAS',text:'Someone unstable. Someone in crisis. Someone who needed to be talked down so the rest of the city could keep going.',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'That\'s the job.',cls:'npc',pause:600},
+    ],
+    choices:[
+      {text:"That's still the job.",
+       persona:'hard',reliability:-5,flag:'defended_role',next:'thomas_final_3'},
+      {text:"I didn't know what it was going to be.",
+       persona:'soft',reliability:3,flag:'honest_arrival',next:'thomas_final_3'},
+      {text:"I stopped to read the file. Your badge shouldn't have worked.",
+       persona:'detached',reliability:5,flag:'admitted_paused',next:'thomas_final_3'},
+      {text:"I thought it was going to be simpler.",
+       persona:'soft',reliability:2,flag:'admitted_simple',next:'thomas_final_3'},
+    ]
+  },
+
+  thomas_final_3:{
+    setup:async()=>{
+      G.reliability-=4;updateReliabilityUI();
+      triggerGlitch(0.2);
+      setAtmosphere('Harmon Tower — Roof Edge','He turns to face you. For the first time you see him clearly.');
+      await delay(400);
+    },
+    messages:[
+      {speaker:'THOMAS',text:'Seven months.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'I\'ve had this conversation in my head for seven months. With journalists. With lawyers. With myself at three in the morning.',cls:'npc',pause:900},
+      {speaker:'THOMAS',text:'Every time I imagine it, the other person either believes me immediately — which means they\'re naive — or they dismiss me — which means they\'re complicit.',cls:'npc',pause:1000},
+      {speaker:'THOMAS',text:'You haven\'t done either.',cls:'npc',pause:700},
+    ],
+    choices:[
+      {text:"I don't know enough to believe you yet.",
+       persona:'detached',reliability:2,flag:'honest_doubt',next:'thomas_final_question'},
+      {text:"I know enough to know something happened to you.",
+       persona:'soft',reliability:4,flag:'acknowledged_harm',next:'thomas_final_question'},
+      {text:"(Say nothing. Let him find his way to whatever he needs to ask.)",
+       persona:'soft',reliability:3,flag:'held_space_final',next:'thomas_final_question'},
+      {text:"Then what do you need from me?",
+       persona:'hard',reliability:1,flag:'asked_need',next:'thomas_final_what_need'},
+    ]
+  },
+
+  thomas_final_what_need:{
+    messages:[
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'I needed someone who wouldn\'t immediately try to fix me.',cls:'npc',pause:600},
+      {speaker:'DR. CHEN',text:'I\'m not trying to fix you.',cls:'player',pause:400},
+      {speaker:'THOMAS',text:'No. You\'re trying to get me off the ledge.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'There\'s a difference. You\'re the first person who seems to know that.',cls:'npc',pause:800},
+    ],
+    auto:'thomas_final_question',autoDelay:400,
+  },
+
+  thomas_final_question:{
+    setup:async()=>{
+      G.reliability-=3;updateReliabilityUI();
+      playMemoryChime(5);
+      await delay(600);
+    },
+    messages:[
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:1000},
+      {speaker:'THOMAS',text:'Do you believe me?',cls:'npc',pause:400},
+      {speaker:'[INTERNAL]',text:'There it is.',cls:'crack',pause:500},
+      {speaker:'[INTERNAL]',text:'Not: do you believe the files? Not: do you believe the pattern?',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'Do you believe him.',cls:'crack',pause:900},
+      {speaker:'[INTERNAL]',text:'Sofia is five years old.',cls:'memory',pause:700},
+      {speaker:'[INTERNAL]',text:'You spent three seconds on document thirty-one.',cls:'memory',pause:800},
+      {speaker:'[INTERNAL]',text:'You don\'t remember opening it.',cls:'crack',pause:900},
     ],
     choices:()=>{
       const choices=[
