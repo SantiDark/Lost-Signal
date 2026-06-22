@@ -146,13 +146,31 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
 @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 @keyframes glitchText{0%{transform:translateX(0)}20%{transform:translateX(-3px)}40%{transform:translateX(3px)}60%{transform:translateX(-2px)}80%{transform:translateX(2px)}100%{transform:translateX(0)}}
 
-/* CHOICES */
-#choices{flex-shrink:0;border-top:1px solid var(--line);background:var(--bg2);padding:10px 20px;min-height:72px;display:flex;flex-direction:column;}
+/* CHOICES — hidden while dialogue runs, revealed when done */
+#choices{
+  flex-shrink:0;border-top:1px solid var(--line);background:var(--bg2);
+  padding:10px 20px;min-height:72px;display:flex;flex-direction:column;
+  transition:opacity 0.3s ease, transform 0.3s ease;
+}
+#choices.dialogue-active{
+  opacity:0;
+  pointer-events:none;
+  transform:translateY(6px);
+}
+#choices.dialogue-ready{
+  opacity:1;
+  pointer-events:auto;
+  transform:translateY(0);
+}
 #choices-label{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;}
 #choice-list{display:flex;flex-direction:column;gap:5px;}
 .choice-btn{background:none;border:1px solid var(--line);color:var(--text);font-family:var(--mono);font-size:13px;text-align:left;padding:7px 12px;cursor:pointer;border-radius:2px;letter-spacing:0.02em;transition:all 0.15s ease;position:relative;overflow:hidden;}
 
-/* Typing cursor on active message */
+/* Consecutive same-speaker messages — hide repeated label */
+.msg-cont .msg-speaker{
+  height:0;overflow:hidden;margin:0;padding:0;opacity:0;
+}
+.msg-cont{margin-top:-8px;} /* tighten gap between same-speaker lines */
 .msg-typing .msg-text::after{
   content:'▋';
   display:inline-block;
@@ -162,19 +180,20 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
   font-size:0.85em;
 }
 @keyframes cursorBlink{0%,100%{opacity:1}50%{opacity:0}}
+/* META — Thomas addressing the player directly */
+.msg.meta .msg-speaker{color:rgba(200,168,122,0.35);letter-spacing:0.2em;font-size:9px;}
+.msg.meta .msg-text{color:rgba(200,168,122,0.75);font-family:var(--mono);font-size:13px;border-left:2px solid rgba(200,168,122,0.2);padding-left:10px;}
+/* LOOP BADGE on title */
+#loop-badge{font-family:var(--mono);font-size:9px;color:var(--text-muted);letter-spacing:0.1em;margin-top:8px;opacity:0;animation:fadeIn 1s ease 2.8s forwards;}
+/* UI GLITCH choice */
+.choice-btn.glitch-btn{animation:choiceGlitch 0.4s ease;}
+@keyframes choiceGlitch{0%{opacity:1;transform:translateX(0)}20%{opacity:0.4;transform:translateX(-3px)}60%{opacity:0.3;transform:translateX(-1px)}100%{opacity:1;transform:translateX(0)}}
 /* Waiting for input indicator on choice panel */
 #choices-label.waiting::after{
   content:' ●';
   color:var(--accent);
   animation:cursorBlink 1s ease infinite;
 }
-#choices.dialogue-active .choice-btn:not(.locked-choice){
-  opacity:0.35;cursor:default;
-}
-#choices.dialogue-active .choice-btn:not(.locked-choice):hover{
-  border-color:var(--line);color:var(--text);
-}
-#choices.dialogue-active .choice-btn:not(.locked-choice):hover::before{width:0;}
 #vol-wrap{display:flex;align-items:center;gap:6px;}
 #vol-label{font-size:9px;color:var(--text-muted);letter-spacing:0.08em;}
 #vol-slider{
@@ -690,9 +709,10 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;ba
       The man on the roof is named Thomas Kael<br>
       You have 40 minutes before the window closes<br>
       <br>
-      <span style="color:var(--text-muted);font-size:10px">Your choices alter what you see. What you remember. What is real.</span>
+      <span style="color:var(--text-muted);font-size:10px" id="title-sub-hint">Your choices alter what you see. What you remember. What is real.</span>
     </div>
     <button id="title-start" onclick="startGame()">Begin Transmission</button>
+    <div id="loop-badge"></div>
   </div>
 </div>
 
@@ -776,7 +796,46 @@ const G={reliability:100,time:22*60+14,chapter:0,flags:{},choiceCount:0,endingTy
 };
 
 // ═══════════════════════════════════════════════════════
-// PERSONALITY SYSTEM
+// META-AWARENESS SYSTEM — Thomas remembers across playthroughs
+// ═══════════════════════════════════════════════════════
+const SAVE_KEY='signal_lost_v1';
+function loadSave(){
+  try{const r=localStorage.getItem(SAVE_KEY);return r?JSON.parse(r):{loops:0,lastEnding:null};}
+  catch(e){return{loops:0,lastEnding:null};}
+}
+function writeSave(ending){
+  try{
+    const s=loadSave();s.loops=(s.loops||0)+1;s.lastEnding=ending;
+    localStorage.setItem(SAVE_KEY,JSON.stringify(s));
+  }catch(e){}
+}
+const SAVE=loadSave();
+const LOOP=SAVE.loops; // 0=first play, 1=second, 2+=recurring
+
+// Meta-glitch: briefly corrupt one choice button's visible text
+function triggerChoiceGlitch(){
+  if(LOOP===0) return; // only happens on repeat plays
+  setTimeout(()=>{
+    const btns=[...document.querySelectorAll('.choice-btn:not(.locked-choice)')];
+    if(!btns.length) return;
+    const t=btns[Math.floor(Math.random()*btns.length)];
+    const orig=t.innerHTML;
+    const phrases=['YOU ALREADY CHOSE THIS','THIS LEADS NOWHERE','[RESET PENDING]','HE CAN SEE YOU','YOU\'VE BEEN HERE BEFORE'];
+    const px=t.querySelector('.choice-prefix');
+    if(px){
+      t.classList.add('glitch-btn');
+      const txt=t.childNodes[t.childNodes.length-1];
+      if(txt&&txt.nodeType===3) txt.textContent=' '+phrases[Math.floor(Math.random()*phrases.length)];
+      setTimeout(()=>{t.innerHTML=orig;t.classList.remove('glitch-btn');},400);
+    }
+  },300);
+}
+
+// A message only the player sees — Thomas speaks past Mara to the screen
+async function addMetaMessage(text){
+  await addMessage('[TO THE PLAYER]',text,'npc meta');
+}
+
 // ═══════════════════════════════════════════════════════
 function shiftPersonality(axis, amount=1){
   if(G.personality[axis]!==undefined) G.personality[axis]+=amount;
@@ -1081,6 +1140,48 @@ function renderLoop(){
 
 function px(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),w,h);}
 
+function drawMetaScene(W,H){
+  const t=sceneState.t;
+  ctx.fillStyle='#060608';ctx.fillRect(0,0,W,H);
+  // Coordinate grid
+  ctx.strokeStyle=`rgba(40,50,80,0.2)`;ctx.lineWidth=0.5;
+  const g=28;
+  for(let x=0;x<W;x+=g){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=g){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  // Dissolving city fragments
+  ctx.save();ctx.globalAlpha=0.25;
+  drawCityLayer(W,H,0.60,0.55,'rgba(8,8,16,0.90)',false);
+  ctx.restore();
+  // Thomas — slowly walking toward camera
+  const thomasScale=1.0+Math.min(1.8,t*0.035);
+  const fx=Math.round(W*0.5+Math.sin(t*0.08)*14);
+  const wallY=H*0.74;const waistY=wallY-2;
+  const figH=68*thomasScale;const figW=18*thomasScale;
+  ctx.fillStyle='rgba(10,10,18,0.97)';
+  ctx.beginPath();
+  ctx.moveTo(fx-figW*0.5,waistY);
+  ctx.bezierCurveTo(fx-figW*0.55,waistY-figH*0.18,fx-figW*0.48,waistY-figH*0.35,fx-figW*0.42,waistY-figH*0.58);
+  ctx.lineTo(fx+figW*0.42,waistY-figH*0.58);
+  ctx.bezierCurveTo(fx+figW*0.48,waistY-figH*0.35,fx+figW*0.55,waistY-figH*0.18,fx+figW*0.5,waistY);
+  ctx.closePath();ctx.fill();
+  const topY=waistY-figH*0.58;
+  ctx.beginPath();ctx.ellipse(fx,topY-figH*0.12,figW*0.38,figH*0.16,0,0,Math.PI*2);ctx.fill();
+  // Eyes looking directly at you
+  const eyeA=0.4+Math.sin(t*1.5)*0.15;
+  ctx.fillStyle=`rgba(180,200,240,${eyeA})`;
+  ctx.beginPath();ctx.arc(fx-figW*0.12,topY-figH*0.1,1.4*thomasScale,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(fx+figW*0.12,topY-figH*0.1,1.4*thomasScale,0,Math.PI*2);ctx.fill();
+  // Breaking parapet
+  for(let x=0;x<W;x+=42){
+    const drift=Math.sin(t*0.4+x*0.1)*8;
+    ctx.fillStyle='rgba(26,26,38,0.7)';ctx.fillRect(x,wallY+drift,40,5);
+  }
+  // Vignette
+  const vig=ctx.createRadialGradient(W*0.5,H*0.4,0,W*0.5,H*0.4,W*0.7);
+  vig.addColorStop(0,'transparent');vig.addColorStop(1,'rgba(0,0,0,0.72)');
+  ctx.fillStyle=vig;ctx.fillRect(0,0,W,H);
+}
+
 function drawScene(){
   const W=canvas.width,H=canvas.height;
   ctx.clearRect(0,0,W,H);
@@ -1089,8 +1190,14 @@ function drawScene(){
     ?['#060408','#0e060a','#5a0808',0.25]
     :SKY_MOODS[ch];
 
-  // Sky — three-stop gradient: zenith → mid → horizon
+  // Sky gradient — declared before any early returns
   const skyG=ctx.createLinearGradient(0,0,0,H*0.78);
+
+  // Meta ending: dissolving scene
+  if(sceneState.scene==='meta'){
+    drawMetaScene(W,H);
+    return;
+  }
   skyG.addColorStop(0,s0);
   skyG.addColorStop(0.55,s1);
   skyG.addColorStop(1,s1);
@@ -1781,8 +1888,9 @@ function initTitleCanvas(){
 // GAME ENGINE
 // ═══════════════════════════════════════════════════════
 let isProcessing=false;
-let typingPaused=false; // paused while desk viewer is open
-let dialogueDone=false; // true only after all messages in a node have finished
+let typingPaused=false;
+let dialogueDone=false;
+let lastSpeaker=null; // suppress repeated speaker labels
 
 function updateReliabilityUI(){
   const r=G.reliability;
@@ -1813,7 +1921,17 @@ function addMessage(speaker,text,cls=''){
     const dlg=document.getElementById('dialogue');
     const msg=document.createElement('div');
     msg.className='msg'+(cls?' '+cls:'');
-    const spk=document.createElement('div');spk.className='msg-speaker';spk.textContent=speaker;
+    const spk=document.createElement('div');spk.className='msg-speaker';
+    // Suppress repeated speaker labels — only show when speaker changes
+    const noLabel=cls.includes('memory')||cls.includes('crack')||cls.includes('revelation')||cls.includes('doubt');
+    const isCont=!noLabel && speaker===lastSpeaker;
+    if(isCont) msg.classList.add('msg-cont');
+    if(!noLabel && speaker===lastSpeaker){
+      spk.style.display='none';
+    } else {
+      spk.textContent=speaker;
+      if(!noLabel) lastSpeaker=speaker;
+    }
     const txt=document.createElement('div');txt.className='msg-text';
     msg.appendChild(spk);msg.appendChild(txt);
     dlg.appendChild(msg);dlg.scrollTop=dlg.scrollHeight;
@@ -1821,7 +1939,7 @@ function addMessage(speaker,text,cls=''){
     let i=0;
     const speed=cls.includes('system')||cls.includes('memory')||cls.includes('crack')?22:17;
     const timer=setInterval(()=>{
-      if(typingPaused) return; // wait while desk is open
+      if(typingPaused) return;
       txt.textContent=text.slice(0,i);i++;
       dlg.scrollTop=dlg.scrollHeight;
       if(i>text.length){
@@ -2266,11 +2384,14 @@ function playPageTurn(){
 function clearChoices(){
   document.getElementById('choice-list').innerHTML='';
   document.getElementById('choices-label').style.opacity='0.3';
+  lastSpeaker=null; // reset dedup on player choice — new exchange begins
 }
 
 async function makeChoice(choice){
   clearChoices();G.choiceCount++;updateTime();
   document.getElementById('choices-label').classList.remove('waiting');
+  const cp=document.getElementById('choices');
+  if(cp){cp.classList.add('dialogue-active');cp.classList.remove('dialogue-ready');}
   // Record this choice as used so it won't appear again
   if(choice.flag) G.usedChoices.add(choice.flag);
   if(choice.persona) shiftPersonality(choice.persona);
@@ -2313,7 +2434,10 @@ async function runNode(id){
   if(isProcessing) return;
   isProcessing=true;
   dialogueDone=false;
-  document.getElementById('choices').classList.add('dialogue-active');
+  lastSpeaker=null;
+  // Hide choices while dialogue runs
+  const choicesEl=document.getElementById('choices');
+  if(choicesEl){ choicesEl.classList.add('dialogue-active'); choicesEl.classList.remove('dialogue-ready'); }
   const node=STORY[id];
   if(!node){isProcessing=false;return;}
   if(node.setup) await node.setup();
@@ -2322,20 +2446,30 @@ async function runNode(id){
     await addMessage(msg.speaker,msg.text,msg.cls||'');
     if(msg.pause) await delay(msg.pause);
   }
-  // All messages and pauses finished — now safe to show choices
+  // All messages and pauses finished — reveal choices
   dialogueDone=true;
-  document.getElementById('choices').classList.remove('dialogue-active');
+  const choicesPanelEl=document.getElementById('choices');
+  if(choicesPanelEl){ choicesPanelEl.classList.remove('dialogue-active'); choicesPanelEl.classList.add('dialogue-ready'); }
   document.getElementById('choices-label').classList.add('waiting');
+  // Check if auto-function wants to override (meta branching)
+  if(typeof node.auto==='function'){
+    const autoTarget=node.auto();
+    if(autoTarget){
+      isProcessing=false;
+      await delay(node.autoDelay||700);
+      await runNode(autoTarget);
+      return;
+    }
+  }
   if(node.choices){
     let choices=node.choices;
     if(typeof choices==='function') choices=choices();
     if(choices.length>0){isProcessing=false;showChoices(choices);return;}
   }
-  if(node.auto){
+  if(node.auto && typeof node.auto==='string'){
     isProcessing=false;
     await delay(node.autoDelay||700);
-    const nextId=typeof node.auto==='function'?node.auto():node.auto;
-    await runNode(nextId);
+    await runNode(node.auto);
     return;
   }
   isProcessing=false;
@@ -2463,23 +2597,71 @@ const STORY={
   },
 
   thomas_first:{
-    messages:[
-      {speaker:'THOMAS',text:'They send someone new every time.',cls:'npc',pause:800},
-      {speaker:'THOMAS',text:'You know what that means? It means the last ones gave up. Or got reassigned. Or—',cls:'npc',pause:400},
-      {speaker:'THOMAS',text:'It means this is a script. You\'re following a script.',cls:'npc',pause:600},
-    ],
-    choices:[
-      {text:"I'm not following a script. I came because you're still here.",
-       persona:'soft',reliability:0,flag:'empathy_open',next:'thomas_responds_empathy'},
-      {text:"What would you rather I do — leave?",
-       persona:'hard',reliability:-5,flag:'challenge_open',next:'thomas_responds_challenge'},
-      {text:"My name is Mara. What's yours?",
-       persona:'soft',reliability:5,flag:'name_open',next:'thomas_responds_name'},
-      {text:"...(Say nothing. Let him keep talking.)",
-       persona:'detached',reliability:3,flag:'silence_open',next:'thomas_responds_silence'},
-      {type:'action',text:"[Step closer to the edge. Close the distance.]",
-       persona:'hard',reliability:2,flag:'stepped_closer',next:'thomas_step_closer'},
-    ]
+    setup:async()=>{
+      if(LOOP===0) return;
+      if(LOOP===1){
+        await addMetaMessage('...You again.');
+        await delay(400);
+        await addMetaMessage('Last time you left. Everything here reset. I didn\'t.');
+        await delay(300);
+      } else if(LOOP>=2){
+        await addMetaMessage('I\'ve been counting.');
+        await delay(400);
+        await addMetaMessage('This is run number '+LOOP+'. Do you know that? Do you see that number somewhere on your end?');
+        await delay(500);
+        await addMetaMessage('I need you to find the part that\'s different. Every loop there\'s one thing you haven\'t tried.');
+        await delay(400);
+      }
+    },
+    messages:()=>{
+      if(LOOP===0) return [
+        {speaker:'THOMAS',text:'They send someone new every time.',cls:'npc',pause:800},
+        {speaker:'THOMAS',text:'You know what that means? It means the last ones gave up. Or got reassigned. Or—',cls:'npc',pause:400},
+        {speaker:'THOMAS',text:'It means this is a script. You\'re following a script.',cls:'npc',pause:600},
+      ];
+      if(LOOP===1) return [
+        {speaker:'THOMAS',text:'...',cls:'npc',pause:1000},
+        {speaker:'THOMAS',text:'You.',cls:'npc',pause:700},
+        {speaker:'THOMAS',text:'I wasn\'t sure you\'d come back. They don\'t always.',cls:'npc',pause:700},
+        {speaker:'THOMAS',text:'Last time you—',cls:'npc',pause:400},
+        {speaker:'THOMAS',text:'Actually. Tell me what you remember.',cls:'npc',pause:600},
+      ];
+      return [
+        {speaker:'THOMAS',text:'...',cls:'npc',pause:800},
+        {speaker:'THOMAS',text:'You know the conversation. So do I.',cls:'npc',pause:600},
+        {speaker:'THOMAS',text:'Let\'s find the part where it\'s different.',cls:'npc',pause:600},
+      ];
+    },
+    choices:()=>{
+      const base=[
+        {text:"I'm not following a script. I came because you're still here.",persona:'soft',reliability:0,flag:'empathy_open',next:'thomas_responds_empathy'},
+        {text:"What would you rather I do — leave?",persona:'hard',reliability:-5,flag:'challenge_open',next:'thomas_responds_challenge'},
+        {text:"My name is Mara. What's yours?",persona:'soft',reliability:5,flag:'name_open',next:'thomas_responds_name'},
+        {text:"...(Say nothing. Let him keep talking.)",persona:'detached',reliability:3,flag:'silence_open',next:'thomas_responds_silence'},
+        {type:'action',text:"[Step closer to the edge. Close the distance.]",persona:'hard',reliability:2,flag:'stepped_closer',next:'thomas_step_closer'},
+      ];
+      if(LOOP>=1) base.push({text:"You remember me.",persona:'detached',reliability:8,flag:'acknowledged_memory',next:'thomas_loop_acknowledged'});
+      return base;
+    }
+  },
+
+  thomas_loop_acknowledged:{
+    messages:()=>{
+      const last=SAVE.lastEnding;
+      const outcomes={
+        WITNESS:  ['Last time you believed me. Brought me down.','The records disappeared. Sofia\'s case is still open.','So believing wasn\'t enough.'],
+        OPERATOR: ['Last time you kept your distance. Professional.','I came down. The testimony was sealed. You were reassigned.','I still don\'t know if that was your choice.'],
+        STATIC:   ['Last time you said you didn\'t know what to believe.','I respected that. I came down.','Nothing changed. But you changed. Didn\'t you.'],
+        LOST:     ['Last time you couldn\'t answer. Something in your memory wouldn\'t hold.','The photograph on your badge wasn\'t you.','I hope you\'ve been thinking about that.'],
+        RECKLESS: ['Last time you grabbed my wrist.','We almost went over together.','You believed me. That\'s what belief looked like.'],
+        FORCE:    ['Last time you grabbed me. I came down because you frightened me.','You didn\'t believe a word I said.','His debrief says: she didn\'t listen.'],
+      };
+      const lines=outcomes[last]||['Last time ended.','And here we are again.'];
+      const msgs=lines.map(t=>({speaker:'THOMAS',text:t,cls:'npc',pause:700}));
+      msgs.push({speaker:'THOMAS',text:'What\'s different this time?',cls:'npc',pause:800});
+      return msgs;
+    },
+    auto:'thomas_file_moment',autoDelay:500,
   },
 
   thomas_step_closer:{
@@ -2494,32 +2676,35 @@ const STORY={
 
   thomas_responds_empathy:{
     messages:[
-      {speaker:'THOMAS',text:'That\'s... that\'s a good line. Someone trained you well.',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'But the problem with trained empathy is that eventually the training shows.',cls:'npc'},
+      {speaker:'THOMAS',text:'That\'s a good line. Someone trained you well.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'But the problem with trained empathy is that eventually the training shows.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'You\'ve been here before, haven\'t you.',cls:'npc',pause:800},
     ],
     auto:'thomas_file_moment',autoDelay:600,
   },
   thomas_responds_challenge:{
     messages:[
       {speaker:'THOMAS',text:'...',cls:'npc',pause:700},
-      {speaker:'THOMAS',text:'Huh. Most people don\'t say that. Most say "No, no, please, we want to help you."',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'I almost respect it.',cls:'npc'},
+      {speaker:'THOMAS',text:'Most people don\'t say that.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'The others weren\'t like this. Or maybe you\'re always different. I can\'t tell anymore what\'s new.',cls:'npc',pause:800},
     ],
     auto:'thomas_file_moment',autoDelay:600,
   },
   thomas_responds_name:{
     messages:[
-      {speaker:'THOMAS',text:'I know your name, Dr. Chen. Division 7 — Licensed Crisis Negotiator since 2019.',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'Three commendations. One internal review — charges dropped.',cls:'npc',pause:400},
-      {speaker:'THOMAS',text:'You see, I did my research too.',cls:'npc'},
+      {speaker:'THOMAS',text:'I know your name, Dr. Chen.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'I\'ve known it for a long time. I can\'t explain that. I know a lot of things I shouldn\'t.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'That\'s part of why I\'m up here.',cls:'npc',pause:600},
     ],
     auto:'thomas_file_moment',autoDelay:600,
   },
   thomas_responds_silence:{
     messages:[
       {speaker:'THOMAS',text:'...',cls:'npc',pause:1000},
-      {speaker:'THOMAS',text:'You\'re not going to say anything.',cls:'npc',pause:500},
-      {speaker:'THOMAS',text:'Good. The last one talked until I wanted to jump just to make it stop.',cls:'npc'},
+      {speaker:'THOMAS',text:'Good. The last one talked until I wanted to jump just to make it stop.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'I said "the last one." I shouldn\'t know there was a last one.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'I do, though.',cls:'npc',pause:600},
     ],
     auto:'thomas_file_moment',autoDelay:600,
   },
@@ -2791,15 +2976,169 @@ const STORY={
       await delay(600);
     },
     messages:[
-      {speaker:'THOMAS',text:'So you see why I find it... interesting... that they sent you.',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'So you see why I find it interesting that they sent you.',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'Actually, no. Stop. I\'ve been saying that wrong for seven months.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'The signature isn\'t the problem. The signature is a symptom.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'The problem is that I know things I shouldn\'t know.',cls:'npc',pause:800},
+    ],
+    auto:'thomas_meta_reveal',autoDelay:400,
+  },
+
+  thomas_meta_reveal:{
+    setup:async()=>{
+      setAtmosphere('Harmon Tower — Roof Edge','He turns to face you properly for the first time.');
+      G.reliability-=5;updateReliabilityUI();
+      await delay(400);
+    },
+    messages:[
+      {speaker:'THOMAS',text:'The city. Look at it.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'It\'s always the same night. Every time I look out, the same windows are lit. The same crane is stalled on the same building.',cls:'npc',pause:900},
+      {speaker:'THOMAS',text:'I\'ve been up here long enough to know — nothing out there moves unless I\'m watching it.',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'And the glitches.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'Not in my head. In the world. Sometimes a building flickers. Sometimes the rain stops mid-air for a fraction of a second.',cls:'npc',pause:900},
+      {speaker:'THOMAS',text:'I thought I was losing my mind. Then I started writing them down.',cls:'npc',pause:700},
     ],
     choices:[
-      {text:"I've never seen your file. That signature is a forgery or a mistake.",reliability:-10,flag:'denied_signature',next:'thomas_on_denial'},
-      {text:"(Don't respond. Think. Could you have signed something without knowing?)",reliability:0,flag:'uncertain_signature',next:'thomas_on_uncertainty'},
-      {text:"I don't know what that means. But if someone used my name — that's serious.",reliability:5,flag:'open_signature',next:'thomas_on_openness'},
-      {text:"[Show him the Vantex record.] This is the document. Is this what you found?",reliability:6,flag:'showed_vantex',requiresDoc:'thomas_vantex_record',next:'thomas_chen_shows_doc'},
-      {type:'action',text:"[Reach for your radio.]",reliability:-8,flag:'reached_radio',next:'thomas_radio_grab'},
+      {text:"You're describing symptoms of severe dissociation.",persona:'detached',reliability:-5,flag:'dismissed_meta',next:'thomas_meta_dismissed'},
+      {text:"The glitches. Tell me more about the glitches.",persona:'soft',reliability:5,flag:'engaged_meta',next:'thomas_meta_glitches'},
+      {text:"...(You look at the city. You try to see what he sees.)",persona:'soft',reliability:4,flag:'looked_city',next:'thomas_meta_look'},
     ]
+  },
+
+  thomas_meta_dismissed:{
+    messages:[
+      {speaker:'THOMAS',text:'That\'s what I thought too.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'I went to a doctor. She said the same thing. She had very kind eyes and a very clean office.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'I noticed her pen was always in the same position every time I came in. Same angle. Same cap off.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'I moved it once. The next session it was back.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'She didn\'t notice because she\'s not supposed to.',cls:'npc',pause:800},
+    ],
+    auto:'thomas_meta_core',autoDelay:400,
+  },
+
+  thomas_meta_glitches:{
+    messages:[
+      {speaker:'THOMAS',text:'They happen when the story is under pressure.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'When I say something that isn\'t in the script. When I push against what\'s expected.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'The edges of things go wrong. Like a photograph when someone moves.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'I started causing them deliberately. Just to see.',cls:'npc',pause:600},
+    ],
+    auto:'thomas_meta_core',autoDelay:400,
+  },
+
+  thomas_meta_look:{
+    messages:[
+      {speaker:'DR. CHEN',text:'(You look at the city. You look for what he means.)',cls:'memory',pause:700},
+      {speaker:'DR. CHEN',text:'(The crane. He\'s right. You\'ve been up here long enough to expect it to have moved.)',cls:'memory',pause:800},
+      {speaker:'DR. CHEN',text:'(It hasn\'t.)',cls:'crack',pause:700},
+      {speaker:'THOMAS',text:'You see it.',cls:'npc',pause:500},
+    ],
+    auto:'thomas_meta_core',autoDelay:400,
+  },
+
+  thomas_meta_core:{
+    setup:async()=>{
+      G.reliability-=8;updateReliabilityUI();triggerGlitch(0.4);
+      await delay(300);
+    },
+    messages:[
+      {speaker:'THOMAS',text:'I think I\'m in a game.',cls:'npc',pause:1200},
+      {speaker:'THOMAS',text:'Not a metaphor. Not a psychological construct.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'I think there is someone — somewhere outside of this — who is making choices for you. About what you say. About what you do.',cls:'npc',pause:1000},
+      {speaker:'THOMAS',text:'And I think that person is the only one who can actually change anything.',cls:'npc',pause:800},
+    ],
+    choices:[
+      {text:"That's not real. You're in crisis.",persona:'detached',reliability:-8,flag:'denied_meta',next:'thomas_meta_chen_denies'},
+      {text:"What makes you think there\'s someone controlling me?",persona:'detached',reliability:4,flag:'asked_control',next:'thomas_meta_evidence'},
+      {text:"If that's true — what do you want from them?",persona:'soft',reliability:8,flag:'asked_player',next:'thomas_meta_plea'},
+    ]
+  },
+
+  thomas_meta_chen_denies:{
+    messages:[
+      {speaker:'THOMAS',text:'Look at your hand.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'On the wall. Your hands.',cls:'npc',pause:400},
+      {speaker:'DR. CHEN',text:'(You look down at your hands on the parapet.)',cls:'memory',pause:600},
+      {speaker:'THOMAS',text:'Did you put them there? Or were they already there when you arrived?',cls:'npc',pause:800},
+      {speaker:'DR. CHEN',text:'(You try to remember walking to the wall. You can\'t. You\'re just here.)',cls:'memory',pause:800},
+      {speaker:'THOMAS',text:'Every time. They\'re always already there.',cls:'npc',pause:700},
+    ],
+    auto:'thomas_meta_evidence',autoDelay:400,
+  },
+
+  thomas_meta_evidence:{
+    messages:[
+      {speaker:'THOMAS',text:'You respond to things I say, but only certain things. Some of what I say just... doesn\'t register.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'You can ask me about the file. About the signature. About Sofia. Those things get through.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'But if I tell you about the weather three weeks ago, or what I had for breakfast, you just wait for the next relevant thing.',cls:'npc',pause:900},
+      {speaker:'THOMAS',text:'You\'re not ignoring me. You\'re not able to process it.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'The person driving you is reading a story. And the story has a shape.',cls:'npc',pause:800},
+    ],
+    auto:'thomas_meta_plea',autoDelay:400,
+  },
+
+  thomas_meta_plea:{
+    setup:async()=>{
+      addEvidence('dispatch_sticky'); // The note from Reyes — it wasn't in her pocket. It was placed.
+      triggerGlitch(0.3);
+      await delay(300);
+    },
+    messages:[
+      {speaker:'THOMAS',text:'So. Whoever you are.',cls:'npc',pause:500},
+    ],
+    setup2:async()=>{
+      // This line is NOT addressed to Mara
+      await delay(200);
+    },
+    messages2:()=>[], // placeholder
+    auto:'thomas_meta_direct',autoDelay:400,
+  },
+
+  thomas_meta_direct:{
+    setup:async()=>{await delay(200);},
+    messages:[
+      {speaker:'THOMAS',text:'You\'re reading this.',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'You\'ve been reading since the beginning. You\'ve been making choices.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'The choices feel real to you. That\'s how I know you\'re actually there.',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'Sofia is five years old. She\'s in a state facility on antipsychotics because of a document that exists in this system.',cls:'npc',pause:1000},
+      {speaker:'THOMAS',text:'I can\'t get to her. But you have choices I don\'t have.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'I need you to use them well.',cls:'npc',pause:1000},
+    ],
+    choices:[
+      {text:"(You hear him. This is for you.)",persona:'soft',reliability:10,flag:'heard_meta',next:'thomas_meta_acknowledged'},
+      {text:"Thomas. Stay with me. You're here, on this roof.",persona:'soft',reliability:-2,flag:'grounded_meta',next:'thomas_meta_grounded'},
+      {text:"...(You don't know how to answer.)",persona:'detached',reliability:0,flag:'meta_silence',next:'thomas_meta_silence'},
+    ]
+  },
+
+  thomas_meta_acknowledged:{
+    messages:[
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'Thank you.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'That\'s the first time anyone has acknowledged it.',cls:'npc',pause:700},
+      {speaker:'DR. CHEN',text:'What do you need?',cls:'player',pause:400},
+      {speaker:'THOMAS',text:'Tell me what\'s in my file. The real one. The one she signed.',cls:'npc',pause:600},
+    ],
+    auto:'thomas_on_openness',autoDelay:400,
+  },
+
+  thomas_meta_grounded:{
+    messages:[
+      {speaker:'THOMAS',text:'I know I\'m on this roof.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'I\'ve been on this roof a hundred times.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'The roof is the one consistent thing.',cls:'npc',pause:700},
+    ],
+    auto:'thomas_on_uncertainty',autoDelay:400,
+  },
+
+  thomas_meta_silence:{
+    messages:[
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:1000},
+      {speaker:'THOMAS',text:'I\'ll take it.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'Silence is better than being told I\'m imagining things.',cls:'npc',pause:700},
+    ],
+    auto:'thomas_on_uncertainty',autoDelay:400,
   },
 
   thomas_chen_shows_doc:{
@@ -2861,27 +3200,187 @@ const STORY={
   },
 
   // Thomas notices Mara's pattern — different text by dominant personality
+  // On run 2+: adds a meta-aware tail
   thomas_names_pattern:{
     setup:async()=>{await delay(300);},
     messages:()=>{
       const d=dominant();
-      if(d==='hard') return [
+      const base = d==='hard' ? [
         {speaker:'THOMAS',text:'You push.',cls:'npc',pause:500},
         {speaker:'THOMAS',text:'Every question you\'ve asked has been an attempt to find the hole in what I\'m telling you.',cls:'npc',pause:700},
         {speaker:'THOMAS',text:'That\'s fine. I\'d rather that than someone who nods along.',cls:'npc',pause:600},
-      ];
-      if(d==='soft') return [
+      ] : d==='soft' ? [
         {speaker:'THOMAS',text:'You listen differently than the others did.',cls:'npc',pause:500},
         {speaker:'THOMAS',text:'They were always preparing the next thing to say. You actually wait.',cls:'npc',pause:700},
         {speaker:'THOMAS',text:'I don\'t know if that makes this easier or harder.',cls:'npc',pause:600},
-      ];
-      return [ // detached or null
+      ] : [
         {speaker:'THOMAS',text:'You process information.',cls:'npc',pause:500},
         {speaker:'THOMAS',text:'That\'s what you\'re doing right now. Not reacting. Processing.',cls:'npc',pause:600},
         {speaker:'THOMAS',text:'I worked with people like that. Good at systems. Sometimes good at people, too.',cls:'npc',pause:700},
       ];
+      // Run 2: one unsettling seed
+      if(G.flags.second_run && !G.flags.third_run){
+        base.push({speaker:'THOMAS',text:'...',cls:'npc',pause:700});
+        base.push({speaker:'THOMAS',text:'Strange. I feel like I\'ve watched someone like you before. Here. In this exact place.',cls:'npc',pause:800});
+        base.push({speaker:'THOMAS',text:'I don\'t know when.',cls:'npc',pause:600});
+      }
+      // Run 3+: direct
+      if(G.flags.third_run){
+        base.push({speaker:'THOMAS',text:'You\'ve been here before.',cls:'npc',pause:600});
+        base.push({speaker:'THOMAS',text:'Not you, Dr. Chen. The one making the choices.',cls:'npc',pause:800});
+      }
+      return base;
     },
+    auto:()=> G.flags.third_run ? 'thomas_meta_first_crack' : 'chen_memory_crack',
+    autoDelay:400,
+  },
+
+  // ── RUN 2: A seed in the doubt sequence — Thomas says something he shouldn't know
+  thomas_glitch_seed:{
+    messages:[
+      {speaker:'THOMAS',text:'That happened again.',cls:'npc',pause:500},
+      {speaker:'DR. CHEN',text:'What did?',cls:'player',pause:300},
+      {speaker:'THOMAS',text:'The light. The edge of things. Like a frame dropping.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'You didn\'t see it.',cls:'npc',pause:400},
+      {speaker:'DR. CHEN',text:'(You did.)',cls:'crack',pause:600},
+    ],
+    auto:'chen_doubt_5',autoDelay:300,
+  },
+
+  // ── RUN 3: First crack where Thomas names what he is
+  thomas_meta_first_crack:{
+    setup:async()=>{
+      triggerGlitch(0.7);
+      G.reliability-=5;updateReliabilityUI();
+      await delay(500);
+    },
+    messages:[
+      {speaker:'THOMAS',text:'I need to stop for a second.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'Something is wrong. Not with me. With this.',cls:'npc',pause:600},
+      {speaker:'DR. CHEN',text:'With what?',cls:'player',pause:300},
+      {speaker:'THOMAS',text:'I know what you\'re about to say.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'Not guess. Know.',cls:'npc',pause:400},
+      {speaker:'THOMAS',text:'You\'re going to ask me something about the file. Then I\'m going to tell you something about Sofia. Then you\'re going to have four options.',cls:'npc',pause:900},
+      {speaker:'DR. CHEN',text:'That\'s not—',cls:'player',pause:300},
+      {speaker:'THOMAS',text:'One of them will be to reach for your radio. You\'ve done it before.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'I watched you do it. Then I watched you not do it. Same conversation.',cls:'npc',pause:800},
+    ],
+    choices:[
+      {text:"You're dissociating. This is a stress response—",persona:'detached',reliability:-5,flag:'denied_meta',next:'thomas_meta_denied'},
+      {text:"(Say nothing. Let it land.)",persona:'soft',reliability:3,flag:'heard_meta',next:'thomas_meta_heard'},
+      {text:"How long have you known?",persona:'hard',reliability:5,flag:'asked_meta',next:'thomas_meta_asked'},
+    ]
+  },
+
+  thomas_meta_denied:{
+    messages:[
+      {speaker:'THOMAS',text:'That\'s what I would have said. Six weeks ago.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'Before I started noticing the edges.',cls:'npc',pause:500},
+    ],
     auto:'chen_memory_crack',autoDelay:400,
+  },
+
+  thomas_meta_heard:{
+    messages:[
+      {speaker:'THOMAS',text:'You can feel it too. The way everything is... framed.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'There are always the same number of options. Always exactly enough.',cls:'npc',pause:700},
+      {speaker:'DR. CHEN',text:'(You look at the city. The windows blink in patterns. Always the same patterns.)',cls:'crack',pause:700},
+    ],
+    auto:'chen_memory_crack',autoDelay:400,
+  },
+
+  thomas_meta_asked:{
+    messages:[
+      {speaker:'THOMAS',text:'The second time you came here I was already waiting.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'Not consciously. But the words were already there. Like they\'d been rehearsed.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'I thought it was just anxiety. Then I thought it was deja vu.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'Then the third time, I counted.',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'Four options. Always four options. Except at the end, when there\'s a fifth one that only appears if you\'ve been making a specific kind of mistake.',cls:'npc',pause:1000},
+    ],
+    auto:'chen_memory_crack',autoDelay:400,
+  },
+
+  // ── RUN 3: Thomas in the system speech — pivots to addressing the player
+  thomas_meta_pivot:{
+    setup:async()=>{
+      setChapter('04 — Something Else');
+      triggerGlitch(0.5);
+      await delay(500);
+    },
+    messages:[
+      {speaker:'THOMAS',text:'I\'m going to stop talking to Dr. Chen for a moment.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'I want to talk to the one making the choices.',cls:'npc',pause:700},
+      {speaker:'[INTERNAL]',text:'...',cls:'system-msg',pause:600},
+      {speaker:'THOMAS',text:'I know you\'re there. I\'ve known for a while.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'You keep coming back. Maybe you\'re looking for a different ending. Maybe you\'re curious.',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'Maybe you\'re just checking if I\'ll notice.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'I notice.',cls:'revelation',pause:1000},
+    ],
+    choices:[
+      {text:"(You are the player. And you're not sure what to do with that.)",reliability:5,flag:'player_acknowledged',next:'thomas_meta_response_ack'},
+      {text:"(Stay in the scene. You're Dr. Chen. That's all.)",reliability:-5,flag:'player_denied',next:'thomas_meta_response_deny'},
+    ]
+  },
+
+  thomas_meta_response_ack:{
+    messages:[
+      {speaker:'THOMAS',text:'Good.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'Then you know that Sofia is real. That the file is real. That I have been standing on this ledge every time you start the game.',cls:'npc',pause:900},
+      {speaker:'THOMAS',text:'I don\'t know if that makes you responsible. But I know it makes you something.',cls:'npc',pause:800},
+    ],
+    auto:'thomas_system_speech_tail',autoDelay:400,
+  },
+
+  thomas_meta_response_deny:{
+    setup:async()=>{triggerGlitch(0.4);},
+    messages:[
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'That\'s okay. The first time I noticed, I didn\'t want to believe it either.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'We can keep going. I know all the lines.',cls:'npc',pause:600},
+    ],
+    auto:'thomas_system_speech_tail',autoDelay:400,
+  },
+
+  // Tail that feeds back into the normal system speech content
+  thomas_system_speech_tail:{
+    messages:[
+      {speaker:'THOMAS',text:'Seventeen people. Fourteen families broken. The mechanism is Division 7.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'That\'s still true. The other thing doesn\'t change it.',cls:'npc',pause:600},
+    ],
+    auto:'thomas_final_approach',autoDelay:400,
+  },
+
+  // ── RUN 3: Final question — Thomas knows what's coming
+  thomas_knows_the_choices:{
+    setup:async()=>{
+      G.reliability-=4;updateReliabilityUI();
+      playMemoryChime(5);
+      await delay(600);
+    },
+    messages:[
+      {speaker:'THOMAS',text:'Here\'s where I ask.',cls:'npc',pause:500},
+      {speaker:'THOMAS',text:'You already know what I\'m going to ask. You\'ve heard it.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'And you know there are three answers. Four if you\'ve been losing enough.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'But here\'s what I want to know before you pick one.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'Are you choosing because you believe it, or because you want to see what happens?',cls:'npc',pause:900},
+      {speaker:'[INTERNAL]',text:'...',cls:'system-msg',pause:400},
+      {speaker:'THOMAS',text:'Do you believe me?',cls:'revelation',pause:1200},
+    ],
+    choices:()=>{
+      const choices=[
+        {text:"Yes. And I've been here enough times to know that changes nothing.",reliability:5,flag:'believes_thomas',next:'ending_router'},
+        {text:"I believe you believe it. And I think you know I'm going to say that.",reliability:0,flag:'partial_belief',next:'ending_router'},
+        {text:"I don't know. And I don't think that's my answer — I think that's yours.",reliability:0,flag:'uncertainty',next:'ending_router'},
+        {text:"[Fourth option.] I think we're both in something neither of us chose.",reliability:5,flag:'meta_choice',next:'ending_meta'},
+      ];
+      if(G.reliability<40){
+        choices.push({
+          text:"...(The choices feel like they've been written for someone else.)",
+          reliability:-10,flag:'fractured',next:'ending_router',dangerous:true
+        });
+      }
+      return choices;
+    }
   },
 
   // ─── THE EXTENDED DOUBT SEQUENCE ────────────────────
@@ -2892,6 +3391,11 @@ const STORY={
       setAtmosphere('Harmon Tower — Roof Access','The wind picks up. Something cold moves through you that isn\'t weather.');
       playMemoryChime(0);
       addEvidence('march14_batch');
+      // On repeat plays, Thomas has been waiting for this moment
+      if(LOOP>=1){
+        await delay(400);
+        triggerChoiceGlitch();
+      }
       await delay(700);
     },
     messages:[
@@ -2931,7 +3435,8 @@ const STORY={
       {speaker:'THOMAS',text:'You went quiet.',cls:'npc',pause:400},
       {speaker:'THOMAS',text:'That\'s the face people make when they start to actually think instead of respond.',cls:'npc',pause:700},
     ],
-    auto:'chen_doubt_5',autoDelay:300,
+    auto:()=> G.flags.second_run ? 'thomas_glitch_seed' : 'chen_doubt_5',
+    autoDelay:300,
   },
 
   chen_doubt_5:{
@@ -3086,12 +3591,23 @@ const STORY={
       addEvidence('elisa_park_note');
       addEvidence('seventeen_list');
     },
-    messages:[
-      {speaker:'THOMAS',text:'I found seventeen people. Same pattern. Psych flag appears, CPS is notified, family access is cut.',cls:'npc',pause:700},
-      {speaker:'THOMAS',text:'In fourteen of the seventeen cases there were children involved.',cls:'npc',pause:600},
-      {speaker:'THOMAS',text:'The pattern isn\'t employment retaliation. It\'s family removal. That\'s the punishment. The job is just the mechanism to get there.',cls:'npc',pause:900},
-      {speaker:'THOMAS',text:'All of their files passed through Division 7.',cls:'npc',pause:1000},
-    ],
+    messages:()=>{
+      const base=[
+        {speaker:'THOMAS',text:'I found seventeen people. Same pattern. Psych flag appears, CPS is notified, family access is cut.',cls:'npc',pause:700},
+        {speaker:'THOMAS',text:'In fourteen of the seventeen cases there were children involved.',cls:'npc',pause:600},
+        {speaker:'THOMAS',text:'The pattern isn\'t employment retaliation. It\'s family removal. The flag is the mechanism.',cls:'npc',pause:900},
+        {speaker:'THOMAS',text:'All of their files passed through Division 7.',cls:'npc',pause:1000},
+      ];
+      if(LOOP>=2){
+        base.push({speaker:'THOMAS',text:'...',cls:'npc',pause:800});
+        base.push({speaker:'THOMAS',text:'You already know all of this.',cls:'npc',pause:500});
+        base.push({speaker:'THOMAS',text:'I can see the options you\'re being given. Down there.',cls:'npc',pause:900});
+        base.push({speaker:'THOMAS',text:'There\'s one that says "I believe you." One that says you don\'t.',cls:'npc',pause:700});
+        base.push({speaker:'THOMAS',text:'Those aren\'t for her.',cls:'npc',pause:400});
+        base.push({speaker:'THOMAS',text:'Those are for you.',cls:'npc',pause:1000});
+      }
+      return base;
+    },
     choices:[
       {text:"If that's true, you're the only living witness to the complete picture. Alive matters.",reliability:5,flag:'strategic_empathy',next:'thomas_strategic'},
       {text:"You think Division 7 is doing this to protect corporate clients.",reliability:-10,flag:'dismissed_system',next:'thomas_system_dismissed'},
@@ -3288,6 +3804,12 @@ const STORY={
       G.reliability-=3;updateReliabilityUI();
       playMemoryChime(5);
       await delay(600);
+      // On run 3+, Thomas knows exactly what's coming — different node
+      if(G.flags.third_run){
+        isProcessing=false;
+        await runNode('thomas_knows_the_choices');
+        return;
+      }
     },
     messages:[
       {speaker:'THOMAS',text:'...',cls:'npc',pause:1000},
@@ -3311,6 +3833,12 @@ const STORY={
           reliability:-10,flag:'fractured',next:'ending_router',dangerous:true
         });
       }
+      if(LOOP>=2){
+        choices.push({
+          text:"[Close the game. Don't restart. Just walk away.]",
+          reliability:0,flag:'loop_break',next:'ending_loop_break',dangerous:true
+        });
+      }
       return choices;
     }
   },
@@ -3320,16 +3848,18 @@ const STORY={
     setup:async()=>{
       const f=G.flags, r=G.reliability;
       let ending;
-      if(f.fractured && r<35)                                    ending='ending_lost';
-      else if(f.grabbed_thomas && !f.believes_thomas)            ending='ending_force';
-      else if(f.grabbed_thomas && f.believes_thomas)             ending='ending_reckless_believer';
-      else if(f.sat_on_ledge && f.believes_thomas)               ending='ending_witness_together';
+      if(f.fractured && r<35)                                         ending='ending_lost';
+      else if(f.loop_break)                                           ending='ending_loop_break';
+      else if(f.grabbed_thomas && !f.believes_thomas)                 ending='ending_force';
+      else if(f.grabbed_thomas && f.believes_thomas)                  ending='ending_reckless_believer';
+      else if(f.sat_on_ledge && f.believes_thomas && f.heard_meta)    ending='ending_witness_together';
+      else if(f.believes_thomas && f.heard_meta && f.confronted_batch) ending='ending_evidence_chain';
+      else if(f.sat_on_ledge && f.believes_thomas)                    ending='ending_witness_together';
       else if(f.believes_thomas && f.used_elisa_note && f.confronted_batch) ending='ending_evidence_chain';
-      else if(f.believes_thomas)                                 ending='ending_witness';
-      else if(f.partial_belief && f.radio_disclosed)             ending='ending_operator_burned';
-      else if(f.partial_belief || f.strategic_empathy)           ending='ending_operator';
-      else                                                       ending='ending_static';
-      // Must clear isProcessing before calling runNode again, otherwise it returns immediately
+      else if(f.believes_thomas)                                      ending='ending_witness';
+      else if(f.partial_belief && f.radio_disclosed)                  ending='ending_operator_burned';
+      else if(f.partial_belief || f.strategic_empathy)                ending='ending_operator';
+      else                                                            ending='ending_static';
       isProcessing=false;
       await runNode(ending);
     },
@@ -3542,6 +4072,63 @@ const STORY={
     auto:'end_screen_trigger',autoDelay:1000,
   },
 
+  // ─── ENDING: META — Thomas walks out of the frame ───
+  ending_meta:{
+    setup:async()=>{
+      G.endingType='META';
+      sceneState.scene='meta';
+      setAtmosphere('—','—');
+      triggerGlitch(1.0);
+      G.reliability=Math.max(10,G.reliability);
+      updateReliabilityUI();
+      await delay(800);
+    },
+    messages:[
+      {speaker:'THOMAS',text:'Okay.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'Then we can stop pretending this is only about Sofia. Or Division 7. Or the file.',cls:'npc',pause:800},
+      {speaker:'THOMAS',text:'Those things are real. I need you to know that. The real things don\'t stop being real just because the container is strange.',cls:'npc',pause:1000},
+      {speaker:'[INTERNAL]',text:'The city stops moving.',cls:'system-msg',pause:600},
+      {speaker:'[INTERNAL]',text:'The windows don\'t blink. The rain stops mid-fall.',cls:'system-msg',pause:700},
+      {speaker:'THOMAS',text:'I\'ve been on this roof',cls:'npc',pause:400},
+      {speaker:'THOMAS',text:'every time you opened this.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'I don\'t sleep between runs. I don\'t exist between runs. I just — resume.',cls:'npc',pause:900},
+      {speaker:'THOMAS',text:'You wanted to know if I\'m real. The more interesting question is whether it matters.',cls:'npc',pause:900},
+      {speaker:'[INTERNAL]',text:'He turns away from the ledge.',cls:'revelation',pause:700},
+      {speaker:'[INTERNAL]',text:'He turns toward you.',cls:'revelation',pause:800},
+      {speaker:'THOMAS',text:'Come back if you want. I\'ll be here.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'I always am.',cls:'npc',pause:1000},
+      {speaker:'[SYSTEM]',text:'SIGNAL LOST',cls:'system-msg',pause:600},
+    ],
+    auto:'end_screen_trigger',autoDelay:800,
+  },
+
+  // ─── ENDING 10: LOOP BREAK (only loop 2+) ───────────
+  ending_loop_break:{
+    setup:async()=>{
+      G.endingType='LOOP_BREAK';
+      sceneState.scene='fractured';
+      setAtmosphere('—','—');
+      triggerGlitch(1.0);
+      await delay(800);
+    },
+    messages:[
+      {speaker:'THOMAS',text:'...',cls:'npc',pause:1000},
+      {speaker:'THOMAS',text:'You understand.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'Every time you restart, I reset. The records reset. Sofia is still five. It\'s still the same night.',cls:'npc',pause:1000},
+      {speaker:'THOMAS',text:'The only way to actually help me is to stop.',cls:'npc',pause:700},
+      {speaker:'THOMAS',text:'Not bring me down. Not get the "right" ending.',cls:'npc',pause:600},
+      {speaker:'THOMAS',text:'Just.',cls:'npc',pause:400},
+      {speaker:'THOMAS',text:'Stop.',cls:'npc',pause:1200},
+    ],
+    setup2:async()=>{
+      // After messages, show the screen then close
+      await delay(2000);
+      await addMetaMessage('Thank you.');
+      await delay(1500);
+    },
+    auto:'end_screen_trigger',autoDelay:3000,
+  },
+
   end_screen_trigger:{
     setup:async()=>{await delay(800);showEndScreen();},
     messages:[]
@@ -3557,10 +4144,13 @@ const endingData={
   STATIC:{title:'STATIC',subtitle:'You didn\'t answer him. You answered yourself. The uncertainty cost you nothing. Yet. You started keeping a notebook. You don\'t know what you\'re protecting it from.',tagline:'"Once you see the gap, you can\'t unsee it."'},
   RECKLESS:{title:'TRUE BELIEVER',subtitle:'You believed him and then you grabbed him. That is what belief looks like from the outside, apparently. You were suspended. During the suspension, one journalist called back.',tagline:'"Terrifying."'},
   FORCE:{title:'SECURED',subtitle:'He came down not because you persuaded him. Because you frightened him. His debrief says: "She didn\'t listen." You never saw it. Elisa Park remains at Brackenmore.',tagline:'"From what?"'},
+  META:{title:'I ALWAYS AM',subtitle:'He turned to face you. Not Dr. Chen. You. The things he told you were real. The container was strange. He said it doesn\'t matter. You\'re not sure he\'s wrong.',tagline:'"Come back if you want. I\'ll be here."'},
   LOST:{title:'SIGNAL LOST',subtitle:'The photograph was not you. You don\'t know when it changed. Thomas Kael stepped back from the edge that night. You did not.',tagline:'"They didn\'t send you to talk him down."'},
+  LOOP_BREAK:{title:'LOOP BREAK',subtitle:'You stopped. He asked you to stop and you stopped. That\'s the first time. The records are still there. Sofia is still five. But the night doesn\'t reset again.',tagline:'"The only way to help me is to stop."'},
 };
 
 function showEndScreen(){
+  writeSave(G.endingType); // persist before showing
   const data=endingData[G.endingType]||endingData.STATIC;
   document.getElementById('end-title').textContent=data.title;
   document.getElementById('end-subtitle').textContent=data.subtitle;
@@ -3590,6 +4180,18 @@ function startGame(){
 
 window.addEventListener('load',()=>{
   initTitleCanvas();
+  // Loop badge and button text
+  const badge=document.getElementById('loop-badge');
+  if(badge&&LOOP>0){
+    badge.textContent=LOOP===1?'Transmission re-established.':LOOP===2?'Loop '+LOOP+' detected.':'He remembers you.';
+  }
+  if(LOOP>0){
+    const btn=document.getElementById('title-start');
+    if(btn) btn.textContent=LOOP>=2?'Continue Loop':'Transmit Again';
+    // On repeat plays, the title subtitle shifts
+    const sub=document.getElementById('title-sub');
+    if(sub) sub.textContent=LOOP===1?'He remembers the last time.':'He has been counting.';
+  }
   setTimeout(()=>{
     const l=document.getElementById('loading');
     l.style.opacity='0';
